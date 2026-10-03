@@ -11,12 +11,12 @@
   --bg:#f6f5f9; --panel:#ffffff; --ink:#18161f; --muted:#6b6878; --line:#e4e1ec;
   --accent:#7c4dff; --accent-ink:#ffffff;
   --ban:#d92d3a; --ban-bg:#fde8ea; --warn:#c96a00; --warn-bg:#fff1dd; --info:#5b6472; --info-bg:#eef0f3;
-  --ok:#1f8a4c; --ok-bg:#e3f5ea;
+  --ok:#1f8a4c; --ok-bg:#e3f5ea; --music:#2f6fd6; --music-bg:#e5eefc;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#111016; --panel:#1b1a22; --ink:#ecebf2; --muted:#9a97a8; --line:#2c2a36;
     --accent:#9b78ff; --ban:#ff5c68; --ban-bg:#3a1a1f; --warn:#ffad42; --warn-bg:#3a2a12; --info:#a7afbd; --info-bg:#262832;
-    --ok:#4fd18a; --ok-bg:#16301f; }
+    --ok:#4fd18a; --ok-bg:#16301f; --music:#7fb0ff; --music-bg:#17253d; }
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -42,16 +42,16 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .summary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 .chip{border-radius:999px;padding:4px 12px;font-weight:600;font-size:13px;white-space:nowrap}
 .chip.ban{background:var(--ban-bg);color:var(--ban)} .chip.warn{background:var(--warn-bg);color:var(--warn)}
-.chip.info{background:var(--info-bg);color:var(--info)} .chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.info{background:var(--info-bg);color:var(--info)} .chip.music{background:var(--music-bg);color:var(--music)} .chip.ok{background:var(--ok-bg);color:var(--ok)}
 .timeline{position:relative;height:28px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin:8px 0 18px}
 .timeline .m{position:absolute;top:3px;bottom:3px;min-width:4px;border-radius:2px;cursor:pointer;border:0;padding:0}
-.timeline .m.ban{background:var(--ban)} .timeline .m.warn{background:var(--warn)} .timeline .m.info{background:var(--info);opacity:.6}
+.timeline .m.ban{background:var(--ban)} .timeline .m.warn{background:var(--warn)} .timeline .m.info{background:var(--info);opacity:.6} .timeline .m.music{background:var(--music);opacity:.75}
 .timeline .ticks{position:absolute;left:0;right:0;bottom:-18px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
 .group h3{display:flex;align-items:center;gap:8px;font-size:15px;margin:18px 0 8px;flex-wrap:wrap}
 .group h3 .hint{font-weight:400;color:var(--muted);font-size:13px}
 details.group summary{cursor:pointer;margin:18px 0 8px}
 .f{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--info);border-radius:8px;margin-bottom:8px}
-.f.ban{border-left-color:var(--ban)} .f.warn{border-left-color:var(--warn)}
+.f.ban{border-left-color:var(--ban)} .f.warn{border-left-color:var(--warn)} .f.music{border-left-color:var(--music)}
 .f .time{font-variant-numeric:tabular-nums;font-weight:700;border:0;background:none;color:var(--accent);padding:0;text-align:left;align-self:start}
 .f .desc,.f .act,.tags,.fb{grid-column:2}
 .f .act{font-size:13px}
@@ -104,19 +104,21 @@ ol.steps{padding-left:20px;margin:8px 0} ol.steps li{margin:4px 0}
       <h2>Einstufung</h2>
       <p><span class="chip ban">Bann-Risiko</span> Nacktheit (auch auf Postern), Sexualisierung Minderjähriger, NS-Gesten/-Symbole, Slurs, Gore. Überspringen oder ausblenden.</p>
       <p><span class="chip warn">Einordnen</span> Hassrede, Extremismus in Berichten, sexuelle Anspielungen. Zeigen nur mit klarer Distanzierung.</p>
+      <p><span class="chip music">Musik (DMCA)</span> Erkennbare Songs, auch im Hintergrund. Führen auf Twitch zu stummgeschalteten VODs oder Strikes.</p>
       <p><span class="chip info">Hinweis</span> Beleidigungen, Drogen, Vulgäres. Relevant für Twitchs KI-Prüfung der Werbetauglichkeit.</p>
     </div>
     <div class="panel hist">
       <h2>Deine Prüfungen</h2><div id="mine"></div>
       <h2 style="margin-top:14px">Beispiele</h2><div id="examples"><div class="sub">lädt …</div></div>
     </div>
+    <p class="sub" style="margin:12px 4px"><a href="#datenschutz">Datenschutz &amp; Hinweise</a></p>
   </aside>
 </main>
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
-const TIER = {ban:"Bann-Risiko", warn:"Einordnen", info:"Hinweis"};
-const HINT = {ban:"überspringen oder ausblenden", warn:"nur mit Distanzierung zeigen", info:"Werbetauglichkeit"};
+const TIER = {ban:"Bann-Risiko", warn:"Einordnen", info:"Hinweis", music:"Musik (DMCA)"};
+const HINT = {ban:"überspringen oder ausblenden", warn:"nur mit Distanzierung zeigen", info:"Werbetauglichkeit", music:"Ton leiser/aus oder überspringen, sonst VOD-Stummschaltung oder Strike"};
 const CTX = {documentary:"Doku/Bericht", critical:"kritisch eingeordnet", endorsing:"befürwortend", neutral:"neutral", unknown:"Kontext unklar"};
 const MOD = {visual:"Bild", audio:"Ton", both:"Bild + Ton"};
 const MODELS = ["gemini-3.6-flash","gemini-3.8-flash","gemini-flash-latest","gemini-3.5-flash-lite","gemini-3.1-flash-lite"];
@@ -153,14 +155,20 @@ tier "warn" = einordnen: zeigen nur mit klarer Distanzierung/Kommentar, ggf. Inh
 tier "info" = Hinweis für Werbetauglichkeit (Twitch wertet Streams per KI auf Markensicherheit aus):
   - derbe Beleidigungen, Vulgärsprache, harte Drogen, Glücksspiel
   - Rauchen und Alkohol NICHT einzeln melden; höchstens EIN Sammelhinweis pro Ausschnitt, und nur wenn exzessiv
+tier "music" = urheberrechtlich geschützte Musik (DMCA-Risiko: Twitch schaltet VODs stumm oder verteilt Strikes):
+  - erkennbare kommerzielle Songs (Charts, Radio, Schlager, Jukebox, Konzert, Musikvideo), auch leise im Hintergrund
+  - gesungene oder gespielte bekannte Lieder, auch kurz
+  - NICHT melden: generische, offensichtlich lizenzfreie Hintergrund-/Produktionsmusik ohne erkennbares Lied
+  - je zusammenhängendem Musikabschnitt EIN Eintrag; Feld "song" = „Interpret – Titel“, wenn erkannt, sonst "unbekannt"
 
 context: "documentary" (Doku/Bericht), "critical" (wird im Video kritisiert/eingeordnet),
          "endorsing" (wird gutgeheißen/verbreitet), "neutral" oder "unknown".
 Kontext senkt NICHT die Stufe bei Nacktheit, Slurs und NS-Gesten – Twitch bannt dafür auch in Reactions.
 
 Antworte NUR mit JSON:
-{"findings":[{"start":"MM:SS","end":"MM:SS","tier":"ban|warn|info",
-"category":"nudity|sexual|minors|extremism|slur|hate|violence|language|drugs|other",
+{"findings":[{"start":"MM:SS","end":"MM:SS","tier":"ban|warn|info|music",
+"category":"nudity|sexual|minors|extremism|slur|hate|violence|language|drugs|music|other",
+"song":"nur bei tier music",
 "modality":"visual|audio|both","context":"...",
 "description":"was genau zu sehen/hören ist (deutsch, knapp)",
 "action":"konkrete Empfehlung für den Streamer, z. B. 'überspringen bis 08:05' oder 'stummschalten' oder 'vorher einordnen'"}],
@@ -221,12 +229,12 @@ function normalize(x, s, dur){
   return x;
 }
 
-const RANK = {ban:0, warn:1, info:2};
+const RANK = {ban:0, warn:1, info:2, music:9};
 function mergeFindings(a, b){   // zwei Läufe vereinen; gemessen: je Lauf 5/7, zusammen 7/7
   const out = [];
   for (const f of [...a, ...b].map(x => ({...x})).sort((x,y) => x.t-y.t)){
     const fb = parse(f.end);
-    const g = out.find(g => f.t-10 <= parse(g.end) && fb+10 >= g.t && Math.abs((RANK[f.tier]??1)-(RANK[g.tier]??1)) <= 1);
+    const g = out.find(g => ((f.tier==="music")===(g.tier==="music")) && f.t-10 <= parse(g.end) && fb+10 >= g.t && Math.abs((RANK[f.tier]??1)-(RANK[g.tier]??1)) <= 1);
     if (!g){ out.push(f); continue; }
     if (fb > parse(g.end)) g.end = f.end;
     if ((RANK[f.tier]??1) < (RANK[g.tier]??1)) Object.assign(g, {tier:f.tier, description:f.description, action:f.action||g.action});
@@ -301,16 +309,16 @@ async function scan(vid){
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")), c => c.charCodeAt(0));
 async function packShare(r, maxDesc){
-  const T = {ban:"b", warn:"w", info:"i"}, M = {visual:"v", audio:"a", both:"x"};
+  const T = {ban:"b", warn:"w", info:"i", music:"m"}, M = {visual:"v", audio:"a", both:"x"};
   const data = {i:r.id, n:r.title.slice(0,90), d:r.duration, s:String(r.scanned_at).slice(0,10), p:r.passes||1, c:r.done===false?0:1,
-    f:(r.findings||[]).filter(f=>!f.suspect).map(f => [f.t, parse(f.end)-f.t, T[f.tier]||"w", M[f.modality]||"", String(f.description||"").slice(0,maxDesc)])};
+    f:(r.findings||[]).filter(f=>!f.suspect).map(f => [f.t, parse(f.end)-f.t, T[f.tier]||"w", M[f.modality]||"", (f.song&&f.song!=="unbekannt"?"🎵 "+f.song+" · ":"")+String(f.description||"").slice(0,maxDesc)])};
   const stream = new Blob([JSON.stringify(data)]).stream().pipeThrough(new CompressionStream("deflate-raw"));
   return b64u(await new Response(stream).arrayBuffer());
 }
 async function unpackShare(code){
   const stream = new Blob([unb64u(code)]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
   const d = JSON.parse(await new Response(stream).text());
-  const T = {b:"ban", w:"warn", i:"info"}, M = {v:"visual", a:"audio", x:"both"};
+  const T = {b:"ban", w:"warn", i:"info", m:"music"}, M = {v:"visual", a:"audio", x:"both"};
   return {id:d.i, title:d.n, duration:d.d, scanned_at:d.s, passes:d.p, done:!!d.c, shared:true,
     findings:d.f.map(([t, len, tier, mod, desc]) => ({t, start:mmss2(t), end:mmss2(t+len), tier:T[tier], modality:M[mod]||undefined, description:desc}))};
 }
@@ -344,7 +352,7 @@ function render(r){
   const fb = store.get("rr_feedback", {})[r.id] || {verdicts:{}, missed:[]};
   const card = (f, i) => { const v = fb.verdicts[i]; return `<div class="f ${f.tier}">
     <button class="time" data-t="${f.t}">${esc(f.start)}${f.end&&f.end!==f.start?"–"+esc(f.end):""}</button>
-    <div class="desc">${esc(f.description)}</div>
+    <div class="desc">${f.song&&f.song!=="unbekannt"?`<b>🎵 ${esc(f.song)}</b> · `:""}${esc(f.description)}</div>
     ${f.action?`<div class="act"><b>Empfehlung:</b> ${esc(f.action)}</div>`:""}
     <div class="tags">${f.modality?`<span class="tag">${MOD[f.modality]||esc(f.modality)}</span>`:""}${f.context?`<span class="tag">${CTX[f.context]||esc(f.context)}</span>`:""}${f.category?`<span class="tag">${esc(f.category)}</span>`:""}${f.suspect?`<span class="tag suspect">${esc(f.suspect)}</span>`:""}</div>
     <div class="fb"><span class="sub">Passt das?</span>
@@ -352,7 +360,7 @@ function render(r){
       <button class="small ${v==="tier"?"on-bad":""}" data-v="tier" data-i="${i}">falsch eingestuft</button>
       <button class="small ${v==="bad"?"on-bad":""}" data-v="bad" data-i="${i}">✖ Fehlalarm</button></div></div>`; };
   const idx = new Map(fs.map((f,i)=>[f,i]));
-  const groups = ["ban","warn","info"].map(t => { const list = fs.filter(f=>f.tier===t); if (!list.length) return "";
+  const groups = ["ban","warn","music","info"].map(t => { const list = fs.filter(f=>f.tier===t); if (!list.length) return "";
     const inner = list.map(f=>card(f, idx.get(f))).join("");
     return t==="info" ? `<details class="group"><summary><span class="chip info">${TIER[t]}</span> <span class="sub">${list.length} · ${HINT[t]} (aufklappen)</span></summary>${inner}</details>`
                       : `<div class="group"><h3><span class="chip ${t}">${TIER[t]}</span><span class="hint">${list.length} Stelle${list.length>1?"n":""} · ${HINT[t]}</span></h3>${inner}</div>`; }).join("");
@@ -364,7 +372,7 @@ function render(r){
     ${r.done===false?`<div class="box"><b>Unvollständig geprüft:</b> nur bis ${mmss(r.scanned_until||0)} von ${mmss(r.duration||0)}. ${esc(r.error||"")} Der Rest ist <b>nicht</b> geprüft.</div>`:""}
     ${(r.models||[]).some(m=>/lite/.test(m||""))?`<div class="box"><b>Teilweise mit kleinem Modell geprüft</b> (Gratis-Kontingent der großen Modelle war aufgebraucht). Das kleine Modell übersieht mehr.</div>`:""}
     ${/alte Einstufung/.test(r.scanned_at||"")?`<div class="box">Älterer Testlauf mit vorläufiger Einstufung. Ein Neu-Scan mit der aktuellen Einstufung folgt.</div>`:""}
-    <div class="summary">${valid.length ? `${count("ban")?`<span class="chip ban">${count("ban")} Bann-Risiko</span>`:""}${count("warn")?`<span class="chip warn">${count("warn")} Einordnen</span>`:""}${count("info")?`<span class="chip info">${count("info")} Hinweis</span>`:""}` : `<span class="chip ok">Keine Funde</span>`}</div>
+    <div class="summary">${valid.length ? `${count("ban")?`<span class="chip ban">${count("ban")} Bann-Risiko</span>`:""}${count("warn")?`<span class="chip warn">${count("warn")} Einordnen</span>`:""}${count("music")?`<span class="chip music">${count("music")} Musik</span>`:""}${count("info")?`<span class="chip info">${count("info")} Hinweis</span>`:""}` : `<span class="chip ok">Keine Funde</span>`}</div>
     <div class="timeline">${valid.map(f => { const a=(f.t||0)/dur*100, w=Math.max(.4,(parse(f.end)-f.t)/dur*100);
       return `<button class="m ${f.tier}" data-t="${f.t}" title="${esc(f.start)} ${esc(TIER[f.tier])}: ${esc(f.description)}" style="left:${a}%;width:${w}%"></button>`; }).join("")}
       <div class="ticks"><span>0:00</span><span>${mmss(dur/2)}</span><span>${mmss(dur)}</span></div></div>
@@ -407,16 +415,39 @@ function render(r){
 function welcome(){
   showView(`<div class="title" style="margin-top:0">Sicher reagieren auf Twitch</div>
     <p>ReactRadar schaut sich ein YouTube-Video vorab an, <b>Bild und Ton</b>, und markiert Stellen, die beim Reagieren im Stream zum Problem werden können:
-    Nacktheit auch im Hintergrund, Slurs, NS-Gesten, Hassrede. Jede Stelle mit Zeitstempel, Einstufung und Empfehlung.</p>
+    Nacktheit auch im Hintergrund, Slurs, NS-Gesten, Hassrede und Musik, die zu DMCA-Problemen führt. Jede Stelle mit Zeitstempel, Einstufung und Empfehlung.</p>
     <p><b>So testest du:</b></p>
     <ol class="steps"><li>Schau dir rechts unter <b>Beispiele</b> fertige Prüfungen an (kein Schlüssel nötig).</li>
     <li>Für eigene Videos: kostenlosen Gemini-Schlüssel eintragen und einen YouTube-Link oben einfügen. Ein 40-Minuten-Video dauert etwa 1–2 Minuten.</li>
     <li>Bei jedem Fund „stimmt“, „falsch eingestuft“ oder „Fehlalarm“ anklicken, verpasste Stellen eintragen, „Feedback kopieren“ und an Raphael schicken.</li></ol>
     <p class="sub">Testversion. Keine Anmeldung, keine Tracker, keine Cookies. Deine Prüfungen und dein Schlüssel bleiben in deinem Browser.
-    Zur Prüfung geht der Video-Link an Google (Gemini), mit deinem eigenen Schlüssel.</p>`);
+    Zur Prüfung geht der Video-Link an Google (Gemini), mit deinem eigenen Schlüssel. Mehr unter <a href="#datenschutz">Datenschutz &amp; Hinweise</a>.</p>`);
+}
+
+function privacy(){
+  current = null; lists();
+  showView(`<div class="title" style="margin-top:0">Datenschutz &amp; Hinweise</div>
+    <p>ReactRadar ist ein privates, nicht-kommerzielles Testprojekt von Raphael (GitHub: xetrovt2000). Es gibt keine Anmeldung,
+    keine Cookies, keine Analyse- oder Tracking-Werkzeuge und keinen eigenen Server, der Daten speichert.</p>
+    <p><b>Hosting:</b> Die Seite liegt bei GitHub Pages (GitHub Inc.). GitHub verarbeitet beim Aufruf technisch notwendige Daten wie die IP-Adresse,
+    siehe <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Datenschutzerklärung von GitHub</a>.</p>
+    <p><b>YouTube-Videos:</b> Beim Öffnen eines Ergebnisses wird das Video über <i>youtube-nocookie.com</i> eingebettet. Dabei werden Daten an Google/YouTube übertragen,
+    siehe <a href="https://policies.google.com/privacy?hl=de" target="_blank" rel="noopener">Datenschutzerklärung von Google</a>.</p>
+    <p><b>Eigene Prüfungen (Gemini):</b> Nur wenn du einen eigenen Gemini-Schlüssel einträgst und ein Video prüfst, sendet dein Browser den Video-Link und den
+    Prüfauftrag direkt an die Gemini-API von Google. Raphael sieht davon nichts. Achtung: In der <b>kostenlosen</b> Gemini-Stufe darf Google Eingaben zur
+    Verbesserung seiner Produkte nutzen, siehe <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener">Gemini-API-Nutzungsbedingungen</a>.
+    Gesendet wird nur der Link zu einem öffentlichen YouTube-Video, keine persönlichen Daten.</p>
+    <p><b>Was in deinem Browser gespeichert wird</b> (localStorage, verlässt dein Gerät nicht): dein Gemini-Schlüssel, deine Prüfergebnisse und dein Feedback.
+    Feedback geht nur an Raphael, wenn du es selbst kopierst und schickst.</p>
+    <p><button id="wipe">Alle lokalen ReactRadar-Daten löschen</button> <span class="sub" id="wiped"></span></p>
+    <p class="sub">Die Einschätzungen stammen von einer KI und können falsch oder unvollständig sein. Sie sind keine Rechtsberatung und keine Garantie,
+    dass ein Video auf Twitch unbedenklich ist. Erwähnte Videos und Kanäle gehören ihren jeweiligen Urhebern.</p>`);
+  $("#wipe").onclick = () => { ["rr_key","rr_scans","rr_feedback","rr_exhausted"].forEach(k => { try{ localStorage.removeItem(k); }catch{} });
+    keyUI(); lists(); $("#wiped").textContent = "✔ gelöscht"; };
 }
 
 async function route(){
+  if (location.hash === "#datenschutz"){ privacy(); return; }
   if (location.hash.startsWith("#s=")){ try{ render(await unpackShare(location.hash.slice(3))); }catch{ showView(`<div class="err">Der geteilte Link ist beschädigt oder unvollständig.</div>`); } return; }
   const id = location.hash.slice(1); const r = id && get(id); if (r) render(r); else { current = null; lists(); welcome(); }
 }
