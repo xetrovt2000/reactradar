@@ -330,6 +330,18 @@ async function shareLink(r){
   }
 }
 
+/* ---------- Überspringen-Liste für Mods/Chat ---------- */
+function skipList(r){
+  const ICON = {ban:"🔴", warn:"🟠", music:"🎵"}, DO = {ban:"überspringen", warn:"einordnen", music:"Ton aus"};
+  const items = (r.findings||[]).filter(f => !f.suspect && ICON[f.tier]).sort((a,b) => a.t-b.t);
+  const build = n => [`ReactRadar · ${r.title} – https://youtu.be/${r.id}`].concat(items.map(f => {
+      const rng = f.start + (f.end && f.end !== f.start ? "–" + f.end : "");
+      const what = f.tier === "music" && f.song && f.song !== "unbekannt" ? f.song : String(f.description||"");
+      return `${ICON[f.tier]} ${rng} ${DO[f.tier]}` + (n ? ` · ${what.length > n ? what.slice(0, n-1) + "…" : what}` : "");
+    })).join("\n");
+  for (const n of [60, 35, 0]){ const s = build(n); if (s.length < 1900 || n === 0) return s; }
+}
+
 /* ---------- Anzeige ---------- */
 function showView(html){ $("#view").innerHTML = html; }
 function lists(){
@@ -367,7 +379,7 @@ function render(r){
   showView(`
     <div class="player"><div id="yt"></div></div>
     <div class="title">${esc(r.title)}</div>
-    <div class="sub">${r.duration?mmss(r.duration)+" · ":""}geprüft ${esc(r.scanned_at)}${r.mine?"":r.shared?" · geteilt":" · Beispiel"}${(r.passes||1)>1?" · gründlich (2 Durchläufe)":""} · <button class="small" id="rescan">selbst neu prüfen</button> · <button class="small" id="share">🔗 Link teilen</button> <span class="sub" id="shareMsg"></span></div>
+    <div class="sub">${r.duration?mmss(r.duration)+" · ":""}geprüft ${esc(r.scanned_at)}${r.mine?"":r.shared?" · geteilt":" · Beispiel"}${(r.passes||1)>1?" · gründlich (2 Durchläufe)":""} · <button class="small" id="rescan">selbst neu prüfen</button> · <button class="small" id="share">🔗 Link teilen</button> · <button class="small" id="skip">📋 Überspringen-Liste</button> <span class="sub" id="shareMsg"></span></div>
     ${r.shared?`<div class="box">Geteiltes Ergebnis (Kurzfassung). Für Empfehlungen und Details das Video selbst prüfen.</div>`:""}
     ${r.done===false?`<div class="box"><b>Unvollständig geprüft:</b> nur bis ${mmss(r.scanned_until||0)} von ${mmss(r.duration||0)}. ${esc(r.error||"")} Der Rest ist <b>nicht</b> geprüft.</div>`:""}
     ${(r.models||[]).some(m=>/lite/.test(m||""))?`<div class="box"><b>Teilweise mit kleinem Modell geprüft</b> (Gratis-Kontingent der großen Modelle war aufgebraucht). Das kleine Modell übersieht mehr.</div>`:""}
@@ -404,6 +416,12 @@ function render(r){
     catch{ prompt("Zum Kopieren markieren:", lines.join("\n")); }
   };
   $("#rescan").onclick = () => scan(r.id);
+  $("#skip").onclick = async () => {
+    const txt = skipList(r);
+    if (txt.split("\n").length < 2){ $("#shareMsg").textContent = "Nichts zu überspringen."; return; }
+    try{ await navigator.clipboard.writeText(txt); $("#shareMsg").textContent = "✔ Liste kopiert – für Chat oder Mod-Kanal"; }
+    catch{ prompt("Liste zum Kopieren:", txt); }
+  };
   $("#share").onclick = async () => {
     const {url, cut} = await shareLink(r);
     try{ await navigator.clipboard.writeText(url); $("#shareMsg").textContent = "✔ Link kopiert" + (cut ? " (Beschreibungen gekürzt, damit er in eine Discord-Nachricht passt)" : ""); }
