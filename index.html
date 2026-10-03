@@ -85,6 +85,7 @@ ol.steps{padding-left:20px;margin:8px 0} ol.steps li{margin:4px 0}
   <div class="logo"><span class="dot"></span>ReactRadar <span class="beta">TEST</span></div>
   <form id="f">
     <input type="text" id="url" placeholder="YouTube-Link einfügen …" autocomplete="off">
+    <label class="sub" title="Jeden Abschnitt zweimal prüfen und zusammenführen: findet deutlich mehr, braucht doppelt so viel Kontingent." style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="thorough"> gründlich</label>
     <button class="primary" id="go">Prüfen</button>
   </form>
 </header>
@@ -220,6 +221,20 @@ function normalize(x, s, dur){
   return x;
 }
 
+const RANK = {ban:0, warn:1, info:2};
+function mergeFindings(a, b){   // zwei Läufe vereinen; gemessen: je Lauf 5/7, zusammen 7/7
+  const out = [];
+  for (const f of [...a, ...b].map(x => ({...x})).sort((x,y) => x.t-y.t)){
+    const fb = parse(f.end);
+    const g = out.find(g => f.t-10 <= parse(g.end) && fb+10 >= g.t && Math.abs((RANK[f.tier]??1)-(RANK[g.tier]??1)) <= 1);
+    if (!g){ out.push(f); continue; }
+    if (fb > parse(g.end)) g.end = f.end;
+    if ((RANK[f.tier]??1) < (RANK[g.tier]??1)) Object.assign(g, {tier:f.tier, description:f.description, action:f.action||g.action});
+    g.passes = (g.passes||1) + 1;
+  }
+  return out;
+}
+
 /* ---------- Video-Metadaten über den YouTube-Player ---------- */
 function ytReady(){ return new Promise(res => { if (window.YT && YT.Player) return res();
   window.onYouTubeIframeAPIReady = res;
@@ -254,7 +269,7 @@ async function scan(vid){
     const {duration, title} = await videoMeta(vid);
     if (!duration) throw new Error("Länge des Videos unbekannt (Livestream?).");
     if (duration > MAXDUR) throw new Error(`Video ist länger als ${MAXDUR/60} Minuten.`);
-    const rec = {id:vid, title, duration, findings:[], models:[], scanned_at:new Date().toLocaleString("de-DE"), done:false, mine:true};
+    const rec = {id:vid, title, duration, findings:[], models:[], scanned_at:new Date().toLocaleString("de-DE"), done:false, mine:true, passes: $("#thorough").checked ? 2 : 1};
     const chunks = []; for (let s=0; s<duration; s+=CHUNK) chunks.push(s);
     for (let i=0; i<chunks.length; i++){
       const s = chunks[i];
@@ -264,8 +279,14 @@ async function scan(vid){
       if (r.quota){ rec.error = "Gratis-Kontingent für heute aufgebraucht."; break; }
       if (r.failed){ rec.error = "Gemini nicht erreichbar."; break; }
       rec.models.push(r.model);
+      let found = r.findings.map(x => normalize(x, s, duration));
+      if (!r.blocked && $("#thorough").checked){
+        $("#pl").textContent = "zweiter Durchlauf …";
+        const r2 = await callChunk(vid, s, Math.min(s+CHUNK, duration), m => $("#pl").textContent = "2. Durchlauf: " + m);
+        if (r2.findings && !r2.blocked){ found = mergeFindings(found, r2.findings.map(x => normalize(x, s, duration))); rec.models.push(r2.model); }
+      }
       if (r.blocked){ rec.findings = [normalize(r.findings[0], 0, duration)]; rec.done = true; break; }
-      rec.findings.push(...r.findings.map(x => normalize(x, s, duration)));
+      rec.findings.push(...found);
       rec.scanned_until = Math.min(s+CHUNK, duration);
       if (i === chunks.length-1) rec.done = true;
     }
@@ -274,6 +295,31 @@ async function scan(vid){
     location.hash = vid; render(rec);
   }catch(e){ showView(`<div class="err">${esc(e.message)}</div>`); }
   finally{ $("#go").disabled = false; }
+}
+
+/* ---------- Teilen per Link (ohne Server) ---------- */
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const unb64u = s => Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")), c => c.charCodeAt(0));
+async function packShare(r, maxDesc){
+  const T = {ban:"b", warn:"w", info:"i"}, M = {visual:"v", audio:"a", both:"x"};
+  const data = {i:r.id, n:r.title.slice(0,90), d:r.duration, s:String(r.scanned_at).slice(0,10), p:r.passes||1, c:r.done===false?0:1,
+    f:(r.findings||[]).filter(f=>!f.suspect).map(f => [f.t, parse(f.end)-f.t, T[f.tier]||"w", M[f.modality]||"", String(f.description||"").slice(0,maxDesc)])};
+  const stream = new Blob([JSON.stringify(data)]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  return b64u(await new Response(stream).arrayBuffer());
+}
+async function unpackShare(code){
+  const stream = new Blob([unb64u(code)]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  const d = JSON.parse(await new Response(stream).text());
+  const T = {b:"ban", w:"warn", i:"info"}, M = {v:"visual", a:"audio", x:"both"};
+  return {id:d.i, title:d.n, duration:d.d, scanned_at:d.s, passes:d.p, done:!!d.c, shared:true,
+    findings:d.f.map(([t, len, tier, mod, desc]) => ({t, start:mmss2(t), end:mmss2(t+len), tier:T[tier], modality:M[mod]||undefined, description:desc}))};
+}
+async function shareLink(r){
+  const base = location.origin + location.pathname + "#s=";
+  for (const n of [160, 110, 70, 40]){
+    const url = base + await packShare(r, n);
+    if (url.length <= 1900 || n === 40) return {url, cut: n < 160};
+  }
 }
 
 /* ---------- Anzeige ---------- */
@@ -313,7 +359,8 @@ function render(r){
   showView(`
     <div class="player"><div id="yt"></div></div>
     <div class="title">${esc(r.title)}</div>
-    <div class="sub">${r.duration?mmss(r.duration)+" · ":""}geprüft ${esc(r.scanned_at)}${r.mine?"":" · Beispiel"} · <button class="small" id="rescan">selbst neu prüfen</button></div>
+    <div class="sub">${r.duration?mmss(r.duration)+" · ":""}geprüft ${esc(r.scanned_at)}${r.mine?"":r.shared?" · geteilt":" · Beispiel"}${(r.passes||1)>1?" · gründlich (2 Durchläufe)":""} · <button class="small" id="rescan">selbst neu prüfen</button> · <button class="small" id="share">🔗 Link teilen</button> <span class="sub" id="shareMsg"></span></div>
+    ${r.shared?`<div class="box">Geteiltes Ergebnis (Kurzfassung). Für Empfehlungen und Details das Video selbst prüfen.</div>`:""}
     ${r.done===false?`<div class="box"><b>Unvollständig geprüft:</b> nur bis ${mmss(r.scanned_until||0)} von ${mmss(r.duration||0)}. ${esc(r.error||"")} Der Rest ist <b>nicht</b> geprüft.</div>`:""}
     ${(r.models||[]).some(m=>/lite/.test(m||""))?`<div class="box"><b>Teilweise mit kleinem Modell geprüft</b> (Gratis-Kontingent der großen Modelle war aufgebraucht). Das kleine Modell übersieht mehr.</div>`:""}
     ${/alte Einstufung/.test(r.scanned_at||"")?`<div class="box">Älterer Testlauf mit vorläufiger Einstufung. Ein Neu-Scan mit der aktuellen Einstufung folgt.</div>`:""}
@@ -349,6 +396,11 @@ function render(r){
     catch{ prompt("Zum Kopieren markieren:", lines.join("\n")); }
   };
   $("#rescan").onclick = () => scan(r.id);
+  $("#share").onclick = async () => {
+    const {url, cut} = await shareLink(r);
+    try{ await navigator.clipboard.writeText(url); $("#shareMsg").textContent = "✔ Link kopiert" + (cut ? " (Beschreibungen gekürzt, damit er in eine Discord-Nachricht passt)" : ""); }
+    catch{ prompt("Link zum Kopieren:", url); }
+  };
   ytReady().then(() => { player = new YT.Player("yt", {videoId:r.id, host:"https://www.youtube-nocookie.com", playerVars:{rel:0}}); });
 }
 
@@ -364,7 +416,10 @@ function welcome(){
     Zur Prüfung geht der Video-Link an Google (Gemini), mit deinem eigenen Schlüssel.</p>`);
 }
 
-function route(){ const id = location.hash.slice(1); const r = id && get(id); if (r) render(r); else { current = null; lists(); welcome(); } }
+async function route(){
+  if (location.hash.startsWith("#s=")){ try{ render(await unpackShare(location.hash.slice(3))); }catch{ showView(`<div class="err">Der geteilte Link ist beschädigt oder unvollständig.</div>`); } return; }
+  const id = location.hash.slice(1); const r = id && get(id); if (r) render(r); else { current = null; lists(); welcome(); }
+}
 $("#f").onsubmit = e => { e.preventDefault(); const v = vidOf($("#url").value.trim()); if (!v){ showView(`<div class="err">Kein gültiger YouTube-Link.</div>`); return; }
   const mine = store.get("rr_scans", {}); if (mine[v] || EXAMPLES[v]){ location.hash = v; route(); } else scan(v); };
 window.addEventListener("hashchange", route);
