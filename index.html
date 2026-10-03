@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReactRadar · Testversion</title>
+<meta name="description" content="ReactRadar prüft YouTube-Videos vor einer Twitch-Reaction auf Bann-Risiken – Testversion.">
+<meta name="robots" content="noindex">
+<style>
+:root{
+  --bg:#f6f5f9; --panel:#ffffff; --ink:#18161f; --muted:#6b6878; --line:#e4e1ec;
+  --accent:#7c4dff; --accent-ink:#ffffff;
+  --ban:#d92d3a; --ban-bg:#fde8ea; --warn:#c96a00; --warn-bg:#fff1dd; --info:#5b6472; --info-bg:#eef0f3;
+  --ok:#1f8a4c; --ok-bg:#e3f5ea;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#111016; --panel:#1b1a22; --ink:#ecebf2; --muted:#9a97a8; --line:#2c2a36;
+    --accent:#9b78ff; --ban:#ff5c68; --ban-bg:#3a1a1f; --warn:#ffad42; --warn-bg:#3a2a12; --info:#a7afbd; --info-bg:#262832;
+    --ok:#4fd18a; --ok-bg:#16301f; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.logo{font-weight:800;font-size:20px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.logo .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+.beta{font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 6px}
+form{flex:1;display:flex;gap:8px;min-width:260px}
+input[type=text],input[type=password],textarea{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;min-width:0}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 12px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;padding:10px 18px}
+button.small{padding:3px 9px;font-size:12px}
+button:disabled{opacity:.5;cursor:default}
+main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;padding:20px 24px;max-width:1400px;margin:0 auto}
+@media (max-width:900px){main{grid-template-columns:1fr;padding:16px}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+aside .panel+.panel{margin-top:16px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+.player{aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden}
+.player iframe,.player>div{width:100%;height:100%;border:0}
+.title{font-size:18px;font-weight:700;margin:14px 0 4px}
+.sub{color:var(--muted);font-size:13px}
+.summary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.chip{border-radius:999px;padding:4px 12px;font-weight:600;font-size:13px;white-space:nowrap}
+.chip.ban{background:var(--ban-bg);color:var(--ban)} .chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.info{background:var(--info-bg);color:var(--info)} .chip.ok{background:var(--ok-bg);color:var(--ok)}
+.timeline{position:relative;height:28px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin:8px 0 18px}
+.timeline .m{position:absolute;top:3px;bottom:3px;min-width:4px;border-radius:2px;cursor:pointer;border:0;padding:0}
+.timeline .m.ban{background:var(--ban)} .timeline .m.warn{background:var(--warn)} .timeline .m.info{background:var(--info);opacity:.6}
+.timeline .ticks{position:absolute;left:0;right:0;bottom:-18px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.group h3{display:flex;align-items:center;gap:8px;font-size:15px;margin:18px 0 8px;flex-wrap:wrap}
+.group h3 .hint{font-weight:400;color:var(--muted);font-size:13px}
+details.group summary{cursor:pointer;margin:18px 0 8px}
+.f{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--info);border-radius:8px;margin-bottom:8px}
+.f.ban{border-left-color:var(--ban)} .f.warn{border-left-color:var(--warn)}
+.f .time{font-variant-numeric:tabular-nums;font-weight:700;border:0;background:none;color:var(--accent);padding:0;text-align:left;align-self:start}
+.f .desc,.f .act,.tags,.fb{grid-column:2}
+.f .act{font-size:13px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:11px;padding:1px 7px;border-radius:4px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.tag.suspect{color:var(--ban);border-color:var(--ban)}
+.fb{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center}
+.fb button.on-ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.fb button.on-bad{background:var(--ban-bg);color:var(--ban);border-color:var(--ban)}
+.hist a{display:block;padding:8px 10px;border-radius:8px;color:inherit;text-decoration:none;border:1px solid transparent}
+.hist a:hover,.hist a.active{background:var(--bg);border-color:var(--line)}
+.hist .t{font-size:13px;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hist .c{display:flex;gap:6px;margin-top:4px;font-size:12px;align-items:center;flex-wrap:wrap}
+.hist .c span.chip{padding:0 7px;font-size:12px}
+.bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin:10px 0}
+.bar div{height:100%;background:var(--accent);transition:width .3s}
+@media (prefers-reduced-motion:reduce){.bar div{transition:none}}
+.empty{color:var(--muted);padding:24px 6px}
+.legend{font-size:13px;color:var(--muted)} .legend p{margin:6px 0}
+.err{color:var(--ban);margin-top:8px}
+.box{border-radius:8px;padding:10px 12px;margin:12px 0;border:1px solid var(--warn);background:var(--warn-bg)}
+.disclaimer{font-size:12px;color:var(--muted);margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+.keyrow{display:flex;gap:6px;margin-top:8px}
+.ok{color:var(--ok)} a{color:var(--accent)}
+.missed{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap} .missed input{flex:0 0 90px} .missed input.wide{flex:1}
+ol.steps{padding-left:20px;margin:8px 0} ol.steps li{margin:4px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span class="dot"></span>ReactRadar <span class="beta">TEST</span></div>
+  <form id="f">
+    <input type="text" id="url" placeholder="YouTube-Link einfügen …" autocomplete="off">
+    <button class="primary" id="go">Prüfen</button>
+  </form>
+</header>
+<main>
+  <section class="panel" id="view"></section>
+  <aside>
+    <div class="panel">
+      <h2>Dein Gemini-Schlüssel</h2>
+      <div id="keyState" class="sub"></div>
+      <div class="keyrow"><input type="password" id="key" placeholder="AIza…" autocomplete="off"><button id="saveKey">Speichern</button></div>
+      <p class="sub">Nur nötig, um <b>eigene</b> Videos zu prüfen. Kostenlos bei
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> („Create API key“).
+        Der Schlüssel bleibt in deinem Browser und geht nur an Google.</p>
+    </div>
+    <div class="panel legend">
+      <h2>Einstufung</h2>
+      <p><span class="chip ban">Bann-Risiko</span> Nacktheit (auch auf Postern), Sexualisierung Minderjähriger, NS-Gesten/-Symbole, Slurs, Gore. Überspringen oder ausblenden.</p>
+      <p><span class="chip warn">Einordnen</span> Hassrede, Extremismus in Berichten, sexuelle Anspielungen. Zeigen nur mit klarer Distanzierung.</p>
+      <p><span class="chip info">Hinweis</span> Beleidigungen, Drogen, Vulgäres. Relevant für Twitchs KI-Prüfung der Werbetauglichkeit.</p>
+    </div>
+    <div class="panel hist">
+      <h2>Deine Prüfungen</h2><div id="mine"></div>
+      <h2 style="margin-top:14px">Beispiele</h2><div id="examples"><div class="sub">lädt …</div></div>
+    </div>
+  </aside>
+</main>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const TIER = {ban:"Bann-Risiko", warn:"Einordnen", info:"Hinweis"};
+const HINT = {ban:"überspringen oder ausblenden", warn:"nur mit Distanzierung zeigen", info:"Werbetauglichkeit"};
+const CTX = {documentary:"Doku/Bericht", critical:"kritisch eingeordnet", endorsing:"befürwortend", neutral:"neutral", unknown:"Kontext unklar"};
+const MOD = {visual:"Bild", audio:"Ton", both:"Bild + Ton"};
+const MODELS = ["gemini-3.6-flash","gemini-3.8-flash","gemini-flash-latest","gemini-3.5-flash-lite","gemini-3.1-flash-lite"];
+const CHUNK = 600, MAXDUR = 120*60;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+const mmss = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+const mmss2 = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+const parse = t => String(t||"0").split(":").reduce((a,v)=>a*60+(+v||0),0);
+const vidOf = s => (s.match(/(?:v=|youtu\.be\/|shorts\/|live\/|embed\/)([\w-]{11})/)||s.match(/^\s*([\w-]{11})\s*$/)||[])[1];
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+};
+let EXAMPLES = {}, player = null, current = null;
+
+const PROMPT = `Du prüfst ein Video für einen Twitch-Streamer, der es live im Stream zeigen (darauf reagieren) will.
+Schau dir BILD UND TON vollständig an. Achte besonders auf Dinge, die nur im Bild sind
+(Poster, Kalender, Bildschirme, Tattoos, Hintergrund, kurze Einblendungen, Schilder, Gesten).
+
+Melde jede Stelle, die für den Streamer ein Risiko ist, und stufe sie nach den Twitch-Regeln ein:
+
+tier "ban" = Bann-Risiko, überspringen oder ausblenden/stummschalten:
+  - sichtbare Nacktheit: Brustwarzen (weiblich), Genitalien, Gesäß unbedeckt – auch auf Postern, Kalendern, Bildern
+  - sexuelle Handlungen oder deutlich sexualisierte Darstellung
+  - jede Sexualisierung von Minderjährigen (auch nur in Aussagen)
+  - NS-Symbole und -Gesten (Hakenkreuz, Hitlergruß), auch nachgestellt oder als Witz
+  - rassistische Slurs (z. B. N-Wort) hörbar oder lesbar
+  - drastische reale Gewalt, Gore, Tierquälerei, Selbstverletzung
+tier "warn" = einordnen: zeigen nur mit klarer Distanzierung/Kommentar, ggf. Inhaltskennzeichnung setzen:
+  - Hassrede, Rassismus, Antisemitismus, Queerfeindlichkeit, Frauenfeindlichkeit ohne Slur
+  - extremistische Parolen/Aufmärsche in Berichterstattung
+  - sexuelle Anspielungen ohne Nacktheit, knappe Kleidung in sexueller Pose
+  - Gewalt in Filmszenen, Verletzungen
+tier "info" = Hinweis für Werbetauglichkeit (Twitch wertet Streams per KI auf Markensicherheit aus):
+  - derbe Beleidigungen, Vulgärsprache, harte Drogen, Glücksspiel
+  - Rauchen und Alkohol NICHT einzeln melden; höchstens EIN Sammelhinweis pro Ausschnitt, und nur wenn exzessiv
+
+context: "documentary" (Doku/Bericht), "critical" (wird im Video kritisiert/eingeordnet),
+         "endorsing" (wird gutgeheißen/verbreitet), "neutral" oder "unknown".
+Kontext senkt NICHT die Stufe bei Nacktheit, Slurs und NS-Gesten – Twitch bannt dafür auch in Reactions.
+
+Antworte NUR mit JSON:
+{"findings":[{"start":"MM:SS","end":"MM:SS","tier":"ban|warn|info",
+"category":"nudity|sexual|minors|extremism|slur|hate|violence|language|drugs|other",
+"modality":"visual|audio|both","context":"...",
+"description":"was genau zu sehen/hören ist (deutsch, knapp)",
+"action":"konkrete Empfehlung für den Streamer, z. B. 'überspringen bis 08:05' oder 'stummschalten' oder 'vorher einordnen'"}],
+"notes":"was du ggf. nicht prüfen konntest"}
+Nenne nur Stellen, die du wirklich gesehen/gehört hast. Erfinde nichts.
+Zeitstempel relativ zum Anfang DIESES Ausschnitts (beginnt bei 00:00).`;
+
+/* ---------- Schlüssel ---------- */
+function keyUI(){
+  const k = store.get("rr_key", "");
+  $("#keyState").innerHTML = k ? `<span class="ok">✔ Schlüssel gespeichert</span> · <button class="small" id="delKey">entfernen</button>` : "Kein Schlüssel hinterlegt.";
+  const d = $("#delKey"); if (d) d.onclick = () => { store.set("rr_key", ""); keyUI(); };
+}
+$("#saveKey").onclick = () => { const v = $("#key").value.trim(); if (v){ store.set("rr_key", v); $("#key").value = ""; keyUI(); } };
+
+/* ---------- Gemini ---------- */
+async function callChunk(vid, start, end, log){
+  const key = store.get("rr_key", "");
+  const today = new Date().toISOString().slice(0,10);
+  const exhausted = store.get("rr_exhausted", {});
+  const body = {contents:[{parts:[
+      {file_data:{file_uri:`https://www.youtube.com/watch?v=${vid}`}, video_metadata:{start_offset:`${start}s`, end_offset:`${end}s`}},
+      {text: PROMPT}]}],
+    generationConfig:{responseMimeType:"application/json", temperature:0}};
+  for (let attempt=0; attempt<15; attempt++){
+    const usable = MODELS.filter(m => exhausted[m] !== today);
+    if (!usable.length) return {quota:true};
+    const model = usable[attempt % usable.length];
+    log(`Abschnitt ab ${mmss(start)} · ${model}`);
+    let res;
+    try{
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {method:"POST", headers:{"x-goog-api-key":key, "Content-Type":"application/json"}, body:JSON.stringify(body)});
+    }catch(e){ log("Netzwerkfehler, neuer Versuch …"); await sleep(5000); continue; }
+    if (res.status === 400 || res.status === 403){ const t = await res.text(); throw new Error("Gemini lehnt den Schlüssel oder die Anfrage ab: " + t.slice(0,200)); }
+    if (res.status === 429){ exhausted[model] = today; store.set("rr_exhausted", exhausted); continue; }
+    if (!res.ok){ log(`Gemini ${res.status} (überlastet?), neuer Versuch …`); await sleep(8000); continue; }
+    const r = await res.json();
+    if (!r.candidates){
+      const reason = (r.promptFeedback||{}).blockReason || "?";
+      return {blocked:true, model, findings:[{start:"00:00", end:"00:00", tier:"ban", category:"blocked", modality:"both", context:"unknown",
+        description:`Google verweigert die Analyse dieses Videos (${reason}). Das passiert u. a. bei Nacktheit.`, action:"Nicht ungeprüft zeigen."}]};
+    }
+    let parsed = {};
+    try{ parsed = JSON.parse(r.candidates[0].content.parts.at(-1).text); }catch{ log("Antwort nicht lesbar, neuer Versuch …"); continue; }
+    return {model, findings: parsed.findings || []};
+  }
+  return {failed:true};
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function normalize(x, s, dur){
+  let a = parse(x.start), b = parse(x.end || x.start);
+  if (!(s && s-5 <= a && a <= s+CHUNK+5)){ a += s; b += s; }  // relative vs. absolute Zeiten
+  x.start = mmss2(a); x.end = mmss2(Math.max(a,b)); x.t = a;
+  if (dur && a > dur+5) x.suspect = "Zeitstempel hinter Videoende";
+  if (!x.tier) x.tier = "warn";
+  return x;
+}
+
+/* ---------- Video-Metadaten über den YouTube-Player ---------- */
+function ytReady(){ return new Promise(res => { if (window.YT && YT.Player) return res();
+  window.onYouTubeIframeAPIReady = res;
+  if (!$("#ytapi")){ const s=document.createElement("script"); s.id="ytapi"; s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s);} }); }
+async function videoMeta(vid){
+  await ytReady();
+  const holder = document.createElement("div"); holder.style.cssText="position:absolute;width:1px;height:1px;left:-9999px"; document.body.appendChild(holder);
+  const inner = document.createElement("div"); holder.appendChild(inner);
+  return new Promise((res, rej) => {
+    const timer = setTimeout(() => { holder.remove(); rej(new Error("Video konnte nicht geladen werden.")); }, 20000);
+    const p = new YT.Player(inner, {videoId:vid, host:"https://www.youtube-nocookie.com", playerVars:{mute:1},
+      events:{
+        onReady: async () => {
+          let d = p.getDuration(); for (let i=0; i<20 && !d; i++){ await sleep(300); d = p.getDuration(); }
+          const title = (p.getVideoData && p.getVideoData().title) || vid;
+          clearTimeout(timer); p.destroy(); holder.remove(); res({duration: Math.round(d), title});
+        },
+        onError: () => { clearTimeout(timer); holder.remove(); rej(new Error("Video nicht verfügbar oder Einbetten nicht erlaubt.")); }
+      }});
+  });
+}
+
+/* ---------- Prüfung ---------- */
+async function scan(vid){
+  if (!store.get("rr_key","")){ showView(`<div class="box"><b>Für eigene Prüfungen brauchst du einen kostenlosen Gemini-Schlüssel.</b>
+    <ol class="steps"><li>Öffne <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> und melde dich mit einem Google-Konto an.</li>
+    <li>Klicke „Create API key“ und kopiere den Schlüssel.</li><li>Füge ihn rechts unter „Dein Gemini-Schlüssel“ ein.</li></ol>
+    Die Gratisstufe reicht für mehrere Videos am Tag. Es fallen keine Kosten an, solange du in AI Studio keine Abrechnung einrichtest.</div>`); return; }
+  $("#go").disabled = true;
+  showView(`<div class="title">Prüfe Video …</div><div class="sub" id="pt">Video wird geladen</div><div class="bar"><div id="pb" style="width:3%"></div></div><div class="sub" id="pl"></div>`);
+  try{
+    const {duration, title} = await videoMeta(vid);
+    if (!duration) throw new Error("Länge des Videos unbekannt (Livestream?).");
+    if (duration > MAXDUR) throw new Error(`Video ist länger als ${MAXDUR/60} Minuten.`);
+    const rec = {id:vid, title, duration, findings:[], models:[], scanned_at:new Date().toLocaleString("de-DE"), done:false, mine:true};
+    const chunks = []; for (let s=0; s<duration; s+=CHUNK) chunks.push(s);
+    for (let i=0; i<chunks.length; i++){
+      const s = chunks[i];
+      $("#pt").textContent = `${title} · Abschnitt ${i+1} von ${chunks.length} (je 10 Minuten)`;
+      $("#pb").style.width = ((i+0.5)/chunks.length*100) + "%";
+      const r = await callChunk(vid, s, Math.min(s+CHUNK, duration), m => $("#pl").textContent = m);
+      if (r.quota){ rec.error = "Gratis-Kontingent für heute aufgebraucht."; break; }
+      if (r.failed){ rec.error = "Gemini nicht erreichbar."; break; }
+      rec.models.push(r.model);
+      if (r.blocked){ rec.findings = [normalize(r.findings[0], 0, duration)]; rec.done = true; break; }
+      rec.findings.push(...r.findings.map(x => normalize(x, s, duration)));
+      rec.scanned_until = Math.min(s+CHUNK, duration);
+      if (i === chunks.length-1) rec.done = true;
+    }
+    rec.findings.sort((a,b) => a.t-b.t);
+    const mine = store.get("rr_scans", {}); mine[vid] = rec; store.set("rr_scans", mine);
+    location.hash = vid; render(rec);
+  }catch(e){ showView(`<div class="err">${esc(e.message)}</div>`); }
+  finally{ $("#go").disabled = false; }
+}
+
+/* ---------- Anzeige ---------- */
+function showView(html){ $("#view").innerHTML = html; }
+function lists(){
+  const mine = store.get("rr_scans", {});
+  const item = r => { const v = (r.findings||[]).filter(f=>!f.suspect), c = t => v.filter(f=>f.tier===t).length;
+    return `<a href="#${r.id}" class="${current===r.id?"active":""}"><div class="t">${esc(r.title)}</div><div class="c">${
+      c("ban")?`<span class="chip ban">${c("ban")}</span>`:""}${c("warn")?`<span class="chip warn">${c("warn")}</span>`:""}${c("info")?`<span class="chip info">${c("info")}</span>`:""}${
+      !v.length?`<span class="chip ok">sauber</span>`:""}<span class="sub">${r.duration?mmss(r.duration):""}</span></div></a>`; };
+  const m = Object.values(mine).sort((a,b)=>String(b.scanned_at).localeCompare(String(a.scanned_at)));
+  $("#mine").innerHTML = m.length ? m.map(item).join("") : `<div class="sub">Noch keine eigenen Prüfungen.</div>`;
+  $("#examples").innerHTML = Object.values(EXAMPLES).map(item).join("") || `<div class="sub">–</div>`;
+}
+function get(id){ return store.get("rr_scans", {})[id] || EXAMPLES[id]; }
+function seek(t){ if (player && player.seekTo){ player.seekTo(Math.max(0,t-3), true); player.playVideo(); } }
+
+function render(r){
+  current = r.id; lists();
+  const fs = r.findings || [], valid = fs.filter(f=>!f.suspect), count = t => valid.filter(f=>f.tier===t).length;
+  const dur = r.duration || Math.max(1, ...fs.map(f=>f.t||0));
+  const fb = store.get("rr_feedback", {})[r.id] || {verdicts:{}, missed:[]};
+  const card = (f, i) => { const v = fb.verdicts[i]; return `<div class="f ${f.tier}">
+    <button class="time" data-t="${f.t}">${esc(f.start)}${f.end&&f.end!==f.start?"–"+esc(f.end):""}</button>
+    <div class="desc">${esc(f.description)}</div>
+    ${f.action?`<div class="act"><b>Empfehlung:</b> ${esc(f.action)}</div>`:""}
+    <div class="tags">${f.modality?`<span class="tag">${MOD[f.modality]||esc(f.modality)}</span>`:""}${f.context?`<span class="tag">${CTX[f.context]||esc(f.context)}</span>`:""}${f.category?`<span class="tag">${esc(f.category)}</span>`:""}${f.suspect?`<span class="tag suspect">${esc(f.suspect)}</span>`:""}</div>
+    <div class="fb"><span class="sub">Passt das?</span>
+      <button class="small ${v==="ok"?"on-ok":""}" data-v="ok" data-i="${i}">✔ stimmt</button>
+      <button class="small ${v==="tier"?"on-bad":""}" data-v="tier" data-i="${i}">falsch eingestuft</button>
+      <button class="small ${v==="bad"?"on-bad":""}" data-v="bad" data-i="${i}">✖ Fehlalarm</button></div></div>`; };
+  const idx = new Map(fs.map((f,i)=>[f,i]));
+  const groups = ["ban","warn","info"].map(t => { const list = fs.filter(f=>f.tier===t); if (!list.length) return "";
+    const inner = list.map(f=>card(f, idx.get(f))).join("");
+    return t==="info" ? `<details class="group"><summary><span class="chip info">${TIER[t]}</span> <span class="sub">${list.length} · ${HINT[t]} (aufklappen)</span></summary>${inner}</details>`
+                      : `<div class="group"><h3><span class="chip ${t}">${TIER[t]}</span><span class="hint">${list.length} Stelle${list.length>1?"n":""} · ${HINT[t]}</span></h3>${inner}</div>`; }).join("");
+  showView(`
+    <div class="player"><div id="yt"></div></div>
+    <div class="title">${esc(r.title)}</div>
+    <div class="sub">${r.duration?mmss(r.duration)+" · ":""}geprüft ${esc(r.scanned_at)}${r.mine?"":" · Beispiel"} · <button class="small" id="rescan">selbst neu prüfen</button></div>
+    ${r.done===false?`<div class="box"><b>Unvollständig geprüft:</b> nur bis ${mmss(r.scanned_until||0)} von ${mmss(r.duration||0)}. ${esc(r.error||"")} Der Rest ist <b>nicht</b> geprüft.</div>`:""}
+    ${(r.models||[]).some(m=>/lite/.test(m||""))?`<div class="box"><b>Teilweise mit kleinem Modell geprüft</b> (Gratis-Kontingent der großen Modelle war aufgebraucht). Das kleine Modell übersieht mehr.</div>`:""}
+    ${/alte Einstufung/.test(r.scanned_at||"")?`<div class="box">Älterer Testlauf mit vorläufiger Einstufung. Ein Neu-Scan mit der aktuellen Einstufung folgt.</div>`:""}
+    <div class="summary">${valid.length ? `${count("ban")?`<span class="chip ban">${count("ban")} Bann-Risiko</span>`:""}${count("warn")?`<span class="chip warn">${count("warn")} Einordnen</span>`:""}${count("info")?`<span class="chip info">${count("info")} Hinweis</span>`:""}` : `<span class="chip ok">Keine Funde</span>`}</div>
+    <div class="timeline">${valid.map(f => { const a=(f.t||0)/dur*100, w=Math.max(.4,(parse(f.end)-f.t)/dur*100);
+      return `<button class="m ${f.tier}" data-t="${f.t}" title="${esc(f.start)} ${esc(TIER[f.tier])}: ${esc(f.description)}" style="left:${a}%;width:${w}%"></button>`; }).join("")}
+      <div class="ticks"><span>0:00</span><span>${mmss(dur/2)}</span><span>${mmss(dur)}</span></div></div>
+    ${groups || `<div class="empty">Nichts gefunden. Das heißt nicht „garantiert sicher“, aber Bild und Ton wurden komplett geprüft.</div>`}
+    <div class="panel" style="margin-top:18px">
+      <h2>Feedback für Raphael</h2>
+      <div class="sub">Etwas übersehen? Stelle eintragen (z. B. 12:34) und kurz beschreiben.</div>
+      <div class="missed"><input type="text" id="mt" placeholder="12:34"><input type="text" class="wide" id="md" placeholder="Was ist dort zu sehen/hören?"><button id="addMissed">hinzufügen</button></div>
+      <div id="missedList" class="sub" style="margin-top:6px">${fb.missed.map(m=>`• ${esc(m.t)} – ${esc(m.d)}`).join("<br>")}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="primary" id="copyFb">Feedback kopieren</button><span class="sub" id="copied">und dann in Discord an Raphael schicken</span></div>
+    </div>
+    <div class="disclaimer">ReactRadar ist ein Testprojekt und keine Garantie. Die KI kann Stellen übersehen oder falsch einordnen. Im Zweifel die markierten Stellen selbst ansehen.</div>`);
+  document.querySelectorAll("[data-t]").forEach(b => b.onclick = () => seek(+b.dataset.t));
+  document.querySelectorAll("[data-v]").forEach(b => b.onclick = () => {
+    const all = store.get("rr_feedback", {}); const e = all[r.id] || {verdicts:{}, missed:[]};
+    e.verdicts[b.dataset.i] = e.verdicts[b.dataset.i]===b.dataset.v ? undefined : b.dataset.v; all[r.id] = e; store.set("rr_feedback", all);
+    const y = window.scrollY; render(r); window.scrollTo(0, y); });
+  $("#addMissed").onclick = () => { const t=$("#mt").value.trim(), d=$("#md").value.trim(); if(!t&&!d) return;
+    const all = store.get("rr_feedback", {}); const e = all[r.id] || {verdicts:{}, missed:[]}; e.missed.push({t,d}); all[r.id]=e; store.set("rr_feedback", all);
+    const y = window.scrollY; render(r); window.scrollTo(0, y); };
+  $("#copyFb").onclick = async () => {
+    const e = store.get("rr_feedback", {})[r.id] || {verdicts:{}, missed:[]};
+    const L = {ok:"stimmt", tier:"falsch eingestuft", bad:"Fehlalarm"};
+    const lines = [`ReactRadar-Feedback: ${r.title} (https://youtu.be/${r.id})`];
+    fs.forEach((f,i) => { if (e.verdicts[i]) lines.push(`- ${f.start} [${TIER[f.tier]}] ${f.description.slice(0,80)} → ${L[e.verdicts[i]]}`); });
+    e.missed.forEach(m => lines.push(`- VERPASST ${m.t}: ${m.d}`));
+    if (lines.length === 1) lines.push("- (noch keine Bewertung)");
+    try{ await navigator.clipboard.writeText(lines.join("\n")); $("#copied").textContent = "✔ kopiert – jetzt in Discord einfügen"; }
+    catch{ prompt("Zum Kopieren markieren:", lines.join("\n")); }
+  };
+  $("#rescan").onclick = () => scan(r.id);
+  ytReady().then(() => { player = new YT.Player("yt", {videoId:r.id, host:"https://www.youtube-nocookie.com", playerVars:{rel:0}}); });
+}
+
+function welcome(){
+  showView(`<div class="title" style="margin-top:0">Sicher reagieren auf Twitch</div>
+    <p>ReactRadar schaut sich ein YouTube-Video vorab an, <b>Bild und Ton</b>, und markiert Stellen, die beim Reagieren im Stream zum Problem werden können:
+    Nacktheit auch im Hintergrund, Slurs, NS-Gesten, Hassrede. Jede Stelle mit Zeitstempel, Einstufung und Empfehlung.</p>
+    <p><b>So testest du:</b></p>
+    <ol class="steps"><li>Schau dir rechts unter <b>Beispiele</b> fertige Prüfungen an (kein Schlüssel nötig).</li>
+    <li>Für eigene Videos: kostenlosen Gemini-Schlüssel eintragen und einen YouTube-Link oben einfügen. Ein 40-Minuten-Video dauert etwa 1–2 Minuten.</li>
+    <li>Bei jedem Fund „stimmt“, „falsch eingestuft“ oder „Fehlalarm“ anklicken, verpasste Stellen eintragen, „Feedback kopieren“ und an Raphael schicken.</li></ol>
+    <p class="sub">Testversion. Keine Anmeldung, keine Tracker, keine Cookies. Deine Prüfungen und dein Schlüssel bleiben in deinem Browser.
+    Zur Prüfung geht der Video-Link an Google (Gemini), mit deinem eigenen Schlüssel.</p>`);
+}
+
+function route(){ const id = location.hash.slice(1); const r = id && get(id); if (r) render(r); else { current = null; lists(); welcome(); } }
+$("#f").onsubmit = e => { e.preventDefault(); const v = vidOf($("#url").value.trim()); if (!v){ showView(`<div class="err">Kein gültiger YouTube-Link.</div>`); return; }
+  const mine = store.get("rr_scans", {}); if (mine[v] || EXAMPLES[v]){ location.hash = v; route(); } else scan(v); };
+window.addEventListener("hashchange", route);
+keyUI();
+fetch("examples.json").then(r => r.json()).then(d => { EXAMPLES = d; }).catch(() => {}).finally(route);
+</script>
+</body>
+</html>
