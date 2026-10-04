@@ -111,7 +111,7 @@ ol.steps{padding-left:20px;margin:8px 0} ol.steps li{margin:4px 0}
       <h2>Deine Prüfungen</h2><div id="mine"></div>
       <h2 style="margin-top:14px">Beispiele</h2><div id="examples"><div class="sub">lädt …</div></div>
     </div>
-    <p class="sub" style="margin:12px 4px"><a href="#datenschutz">Datenschutz &amp; Hinweise</a></p>
+    <p class="sub" style="margin:12px 4px"><a href="#warum">Warum auch ohne VODs?</a> · <a href="#datenschutz">Datenschutz &amp; Hinweise</a></p>
   </aside>
 </main>
 <script>
@@ -436,12 +436,34 @@ function welcome(){
   showView(`<div class="title" style="margin-top:0">Sicher reagieren auf Twitch</div>
     <p>ReactRadar schaut sich ein YouTube-Video vorab an, <b>Bild und Ton</b>, und markiert Stellen, die beim Reagieren im Stream zum Problem werden können:
     Nacktheit auch im Hintergrund, Slurs, NS-Gesten, Hassrede und Musik, die zu DMCA-Problemen führt. Jede Stelle mit Zeitstempel, Einstufung und Empfehlung.</p>
+    <div class="box"><b>„Wir speichern keine VODs, also egal?“</b> Leider nein: Twitch wertet Livestreams inzwischen selbst per KI aus,
+    und Banns entstehen über Meldungen und Clips, live. <a href="#warum">Warum „keine VODs“ allein nicht schützt →</a></div>
     <p><b>So testest du:</b></p>
     <ol class="steps"><li>Schau dir rechts unter <b>Beispiele</b> fertige Prüfungen an (kein Schlüssel nötig).</li>
     <li>Für eigene Videos: kostenlosen Gemini-Schlüssel eintragen und einen YouTube-Link oben einfügen. Ein 40-Minuten-Video dauert etwa 1–2 Minuten.</li>
     <li>Bei jedem Fund „stimmt“, „falsch eingestuft“ oder „Fehlalarm“ anklicken, verpasste Stellen eintragen, „Feedback kopieren“ und an Raphael schicken.</li></ol>
     <p class="sub">Testversion. Keine Anmeldung, keine Tracker, keine Cookies. Deine Prüfungen und dein Schlüssel bleiben in deinem Browser.
     Zur Prüfung geht der Video-Link an Google (Gemini), mit deinem eigenen Schlüssel. Mehr unter <a href="#datenschutz">Datenschutz &amp; Hinweise</a>.</p>`);
+}
+
+function why(){
+  current = null; lists();
+  showView(`<div class="title" style="margin-top:0">Warum „keine VODs“ allein nicht schützt</div>
+    <p>Ein häufiger Einwand: „Wir speichern keine VODs, also kann nichts passieren.“ Für einen Teil der Risiken stimmt das, für die wichtigsten nicht.</p>
+    <p><b>1. Twitch wertet Livestreams selbst per KI aus.</b> Ende September 2026 hat Twitch-Chef Dan Clancy bestätigt, dass Streams per KI
+    transkribiert und darauf bewertet werden, ob sie für Werbekunden geeignet sind. Kanäle, die dabei als nicht „markensicher“ eingestuft werden,
+    bekommen weniger Werbung und damit weniger Werbegeld, ohne dass sie den Grund erfahren. Das passiert <b>live</b>, unabhängig davon, ob ein VOD
+    gespeichert wird. Quelle: <a href="https://tubefilter.com/2026/09/29/twitch-using-ai-to-scan-streamer-brand-safety-dan-clancy" target="_blank" rel="noopener">Tubefilter, 29.09.2026</a>.</p>
+    <p><b>2. Banns entstehen live.</b> Zuschauer können einen laufenden Stream jederzeit melden. Für Nacktheit, Slurs oder NS-Gesten braucht es kein VOD,
+    die Meldung kommt im Moment, in dem es zu sehen oder zu hören ist.</p>
+    <p><b>3. Clips bleiben.</b> Solange Clips im Kanal erlaubt sind, kann jeder Zuschauer eine heikle Stelle mit einem Klick festhalten. Clips lassen sich
+    melden und können auch DMCA-Meldungen bekommen.</p>
+    <p><b>4. Aufnahmen Dritter.</b> Zuschauer und Clip- oder Highlight-Kanäle zeichnen Streams auf. Was einmal live war, ist nicht automatisch weg.</p>
+    <p><b>Wo „keine VODs“ wirklich hilft:</b> Stummgeschaltete VODs wegen Musik entfallen, und das DMCA-Risiko sinkt deutlich. Deshalb zeigt ReactRadar
+    Musik als eigene Kategorie, die jeder Kanal nach seiner Lage gewichten kann.</p>
+    <p class="sub">Kurz: Ohne VODs fällt ein Teil des Musik-Risikos weg. Bann-Risiko und Werbetauglichkeit hängen aber am Live-Moment, und genau dafür
+    zeigt ReactRadar die Stellen vorher an.</p>
+    <p><a href="#">← zurück zur Startseite</a></p>`);
 }
 
 function privacy(){
@@ -468,6 +490,7 @@ function privacy(){
 
 async function route(){
   if (location.hash === "#datenschutz"){ privacy(); return; }
+  if (location.hash === "#warum"){ why(); return; }
   if (location.hash.startsWith("#s=")){ try{ render(await unpackShare(location.hash.slice(3))); }catch{ showView(`<div class="err">Der geteilte Link ist beschädigt oder unvollständig.</div>`); } return; }
   const id = location.hash.slice(1); const r = id && get(id); if (r) render(r); else { current = null; lists(); welcome(); }
 }
