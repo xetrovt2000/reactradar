@@ -78,7 +78,7 @@ details.group summary{cursor:pointer;margin:18px 0 8px}
 .keyrow{display:flex;gap:6px;margin-top:8px}
 .ok{color:var(--ok)} a{color:var(--accent)}
 .missed{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap} .missed input{flex:0 0 90px} .missed input.wide{flex:1}
-ol.steps{padding-left:20px;margin:8px 0} ol.steps li{margin:4px 0}
+ol.steps,ul.steps{padding-left:20px;margin:8px 0} ol.steps li,ul.steps li{margin:6px 0}
 </style>
 </head>
 <body>
@@ -89,7 +89,7 @@ ol.steps{padding-left:20px;margin:8px 0} ol.steps li{margin:4px 0}
     <label class="sub" title="Jeden Abschnitt zweimal prüfen und zusammenführen: findet deutlich mehr, braucht doppelt so viel Kontingent." style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="thorough"> gründlich</label>
     <button class="primary" id="go">Prüfen</button>
   </form>
-  <nav class="topnav"><a href="#warum">Warum auch ohne VODs?</a><a href="#datenschutz">Datenschutz</a></nav>
+  <nav class="topnav"><a href="#mods">Für Mods</a><a href="#warum">Warum auch ohne VODs?</a><a href="#datenschutz">Datenschutz</a></nav>
 </header>
 <main>
   <section class="panel" id="view"></section>
@@ -160,7 +160,9 @@ tier "info" = Hinweis für Werbetauglichkeit (Twitch wertet Streams per KI auf M
 tier "music" = urheberrechtlich geschützte Musik (DMCA-Risiko: Twitch schaltet VODs stumm oder verteilt Strikes):
   - erkennbare kommerzielle Songs (Charts, Radio, Schlager, Jukebox, Konzert, Musikvideo), auch leise im Hintergrund
   - gesungene oder gespielte bekannte Lieder, auch kurz
-  - NICHT melden: generische, offensichtlich lizenzfreie Hintergrund-/Produktionsmusik ohne erkennbares Lied
+  - NICHT melden: Produktions-, Stock- oder Hintergrundmusik ohne erkennbares bekanntes Lied, z. B. dramatische Streicher,
+    Spannungs- oder Comedy-Untermalung, Jingles, Intro-/Outro-Sounds, Soundeffekte. Melde nur, wenn Gesang, ein bekanntes
+    Lied oder eine bekannte Melodie erkennbar ist (z. B. Filmmusik-Themen, Charts, Schlager)
   - je zusammenhängendem Musikabschnitt EIN Eintrag; Feld "song" = „Interpret – Titel“, wenn erkannt, sonst "unbekannt"
 
 context: "documentary" (Doku/Bericht), "critical" (wird im Video kritisiert/eingeordnet),
@@ -444,8 +446,37 @@ function welcome(){
     <ol class="steps"><li>Schau dir rechts unter <b>Beispiele</b> fertige Prüfungen an (kein Schlüssel nötig).</li>
     <li>Für eigene Videos: kostenlosen Gemini-Schlüssel eintragen und einen YouTube-Link oben einfügen. Ein 40-Minuten-Video dauert etwa 1–2 Minuten.</li>
     <li>Bei jedem Fund „stimmt“, „falsch eingestuft“ oder „Fehlalarm“ anklicken, verpasste Stellen eintragen, „Feedback kopieren“ und an Raphael schicken.</li></ol>
+    <p>Mod in einem Kanal? <a href="#mods">So nutzt ihr ReactRadar im Alltag →</a></p>
     <p class="sub">Testversion. Keine Anmeldung, keine Tracker, keine Cookies. Deine Prüfungen und dein Schlüssel bleiben in deinem Browser.
     Zur Prüfung geht der Video-Link an Google (Gemini), mit deinem eigenen Schlüssel. Mehr unter <a href="#datenschutz">Datenschutz &amp; Hinweise</a>.</p>`);
+}
+
+function mods(){
+  current = null; lists();
+  showView(`<div class="title" style="margin-top:0">Für Mods: so nutzt ihr ReactRadar im Alltag</div>
+    <p><b>1. Vorschläge vorab prüfen.</b> Link aus dem Vorschläge-Kanal oben einfügen und „Prüfen“. Ein 40-Minuten-Video dauert etwa 1–2 Minuten.
+    Bei unbekannten oder heiklen Videos <b>„gründlich“</b> anhaken: Dann wird jeder Abschnitt zweimal geprüft. In unseren Tests fand das deutlich mehr
+    (zusammengeführt rund 96 % statt etwa 85 % der bekannten Stellen), braucht aber doppelt so viel Kontingent.</p>
+    <p><b>2. Ergebnis lesen.</b></p>
+    <ul class="steps">
+      <li><span class="chip ban">Bann-Risiko</span> Stelle überspringen oder Bild/Ton weg. Am besten vor dem Stream selbst kurz anschauen.</li>
+      <li><span class="chip warn">Einordnen</span> Streamer vorwarnen. Zeigen geht, aber mit klarer Distanzierung oder Kommentar.</li>
+      <li><span class="chip music">Musik (DMCA)</span> Ton leiser oder aus. Ohne gespeicherte VODs weniger kritisch, Clips können trotzdem gemeldet werden.</li>
+      <li><span class="chip info">Hinweis</span> Für die Werbetauglichkeit. Meist kein Handlungsbedarf.</li>
+    </ul>
+    <p><b>3. Liste für den Stream.</b> „📋 Überspringen-Liste“ kopiert alle Stellen kompakt mit Zeitstempel, passend für eine Discord-Nachricht.
+    Ab in den Mod-Kanal oder an den Streamer, dann sind die Zeiten während der Reaction griffbereit.</p>
+    <p><b>4. Ergebnis teilen.</b> „🔗 Link teilen“ packt das ganze Ergebnis in einen Link. Wer ihn öffnet, sieht Zeitleiste und Funde, ohne selbst zu prüfen.</p>
+    <p><b>5. Feedback geben.</b> Bei Funden „stimmt“, „falsch eingestuft“ oder „Fehlalarm“ klicken, Verpasstes eintragen und „Feedback kopieren“.
+    Genau daraus wird das Tool besser.</p>
+    <p><b>Grenzen, ehrlich:</b></p>
+    <ul class="steps">
+      <li>Die KI kann Stellen übersehen, vor allem sehr kurze Einblendungen. „Nichts gefunden“ heißt nicht „garantiert sicher“.</li>
+      <li>Geprüft werden nur YouTube-Videos (kein Twitch-VOD, kein TikTok).</li>
+      <li>Mit einem kostenlosen Gemini-Schlüssel reicht das Kontingent erfahrungsgemäß für rund 3 Stunden Video pro Tag, mit „gründlich“ für die Hälfte.
+        Bei manchen Videos verweigert Google die Analyse ganz. Das ist dann selbst ein Warnsignal.</li>
+    </ul>
+    <p><a href="#">← zurück zur Startseite</a></p>`);
 }
 
 function why(){
@@ -493,6 +524,7 @@ function privacy(){
 async function route(){
   if (location.hash === "#datenschutz"){ privacy(); return; }
   if (location.hash === "#warum"){ why(); return; }
+  if (location.hash === "#mods"){ mods(); return; }
   if (location.hash.startsWith("#s=")){ try{ render(await unpackShare(location.hash.slice(3))); }catch{ showView(`<div class="err">Der geteilte Link ist beschädigt oder unvollständig.</div>`); } return; }
   const id = location.hash.slice(1); const r = id && get(id); if (r) render(r); else { current = null; lists(); welcome(); }
 }
