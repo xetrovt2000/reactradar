@@ -214,11 +214,13 @@ async function callChunk(vid, start, end, log){
     }
     let parsed = {};
     try{ parsed = JSON.parse(r.candidates[0].content.parts.at(-1).text); }catch{ log("Antwort nicht lesbar, neuer Versuch …"); continue; }
-    return {model, findings: parsed.findings || []};
+    return {model, findings: findingsOf(parsed)};
   }
   return {failed:true};
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Modelle liefern meist {"findings":[…]}, manchmal direkt eine Liste (gesehen 04.10.)
+const findingsOf = p => Array.isArray(p) ? p.filter(x => x && typeof x === "object") : (p && Array.isArray(p.findings) ? p.findings : []);
 
 function normalize(x, s, dur){
   let a = parse(x.start), b = parse(x.end || x.start);
