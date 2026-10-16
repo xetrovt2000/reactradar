@@ -82,6 +82,10 @@ details.group summary{cursor:pointer;margin:18px 0 8px}
 .ok{color:var(--ok)} a{color:var(--accent)}
 .missed{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap} .missed input{flex:0 0 90px} .missed input.wide{flex:1}
 ol.steps,ul.steps{padding-left:20px;margin:8px 0} ol.steps li,ul.steps li{margin:6px 0}
+.sitefoot{border-top:1px solid var(--line);padding:22px 24px 28px;text-align:center;color:var(--muted);font-size:13px}
+.sitefoot a{color:var(--muted)}
+.xc{display:flex;width:max-content;margin:12px auto 0;align-items:center;gap:8px;color:var(--muted);text-decoration:none;font-size:12px;letter-spacing:.04em;opacity:.85;transition:opacity .2s}
+.xc:hover{opacity:1}.xc img{display:block;height:22px;width:auto}
 </style>
 </head>
 <body>
@@ -119,6 +123,10 @@ ol.steps,ul.steps{padding-left:20px;margin:8px 0} ol.steps li,ul.steps li{margin
     <p class="sub" style="margin:12px 4px"><a href="#warum">Warum auch ohne VODs?</a> · <a href="#datenschutz">Impressum, Datenschutz &amp; Hinweise</a></p>
   </aside>
 </main>
+<footer class="sitefoot">
+  <a href="#datenschutz">Impressum &amp; Datenschutz</a>
+  <a class="xc" href="https://xetcraft.de" target="_blank" rel="noopener" title="Xetcraft – die Werkstatt von XetrovT2000"><span>Ein Projekt von</span><picture><source srcset="xetcraft-logo-dunkel.png" media="(prefers-color-scheme: dark)"><img src="xetcraft-logo-hell.png" width="107" height="22" alt="Xetcraft"></picture></a>
+</footer>
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
