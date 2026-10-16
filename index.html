@@ -92,7 +92,7 @@ ol.steps,ul.steps{padding-left:20px;margin:8px 0} ol.steps li,ul.steps li{margin
     <label class="sub" title="Jeden Abschnitt zweimal prüfen und zusammenführen: findet deutlich mehr, braucht doppelt so viel Kontingent." style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="thorough"> gründlich</label>
     <button class="primary" id="go">Prüfen</button>
   </form>
-  <nav class="topnav"><a href="#mods">Für Mods</a><a href="#warum">Warum auch ohne VODs?</a><a href="#datenschutz">Datenschutz</a></nav>
+  <nav class="topnav"><a href="#mods">Für Mods</a><a href="#warum">Warum auch ohne VODs?</a><a href="#datenschutz">Impressum &amp; Datenschutz</a></nav>
 </header>
 <main>
   <section class="panel" id="view"></section>
@@ -116,7 +116,7 @@ ol.steps,ul.steps{padding-left:20px;margin:8px 0} ol.steps li,ul.steps li{margin
       <h2>Deine Prüfungen</h2><div id="mine"></div>
       <h2 style="margin-top:14px">Beispiele</h2><div id="examples"><div class="sub">lädt …</div></div>
     </div>
-    <p class="sub" style="margin:12px 4px"><a href="#warum">Warum auch ohne VODs?</a> · <a href="#datenschutz">Datenschutz &amp; Hinweise</a></p>
+    <p class="sub" style="margin:12px 4px"><a href="#warum">Warum auch ohne VODs?</a> · <a href="#datenschutz">Impressum, Datenschutz &amp; Hinweise</a></p>
   </aside>
 </main>
 <script>
@@ -504,7 +504,10 @@ function why(){
 
 function privacy(){
   current = null; lists();
-  showView(`<div class="title" style="margin-top:0">Datenschutz &amp; Hinweise</div>
+  showView(`<div class="title" style="margin-top:0">Impressum, Datenschutz &amp; Hinweise</div>
+    <p><b>Impressum</b> (Angaben gemäß § 5 DDG): Raphael Paul, c/o flexdienst – #22433, Kurt-Schumacher-Straße 74,
+    67663 Kaiserslautern, Deutschland. E-Mail: <a href="mailto:kontakt@xetcraft.de">kontakt@xetcraft.de</a>.
+    ReactRadar ist ein Projekt von <a href="https://xetcraft.de" target="_blank" rel="noopener">Xetcraft</a>.</p>
     <p>ReactRadar ist ein privates, nicht-kommerzielles Testprojekt von Raphael (GitHub: xetrovt2000). Es gibt keine Anmeldung,
     keine Cookies, keine Analyse- oder Tracking-Werkzeuge und keinen eigenen Server, der Daten speichert.</p>
     <p><b>Hosting:</b> Die Seite liegt bei GitHub Pages (GitHub Inc.). GitHub verarbeitet beim Aufruf technisch notwendige Daten wie die IP-Adresse,
