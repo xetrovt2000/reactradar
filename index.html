@@ -537,8 +537,13 @@ async function unpackShare(code){
   const stream = new Blob([unb64u(code)]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
   const d = JSON.parse(await new Response(stream).text());
   const T = {b:"ban", w:"warn", i:"info", m:"music"}, M = {v:"visual", a:"audio", x:"both"};
-  return {id:d.i, title:d.n, duration:d.d, scanned_at:d.s, passes:d.p, done:!!d.c, shared:true,
-    findings:d.f.map(([t, len, tier, mod, desc]) => ({t, start:mmss2(t), end:mmss2(t+len), tier:T[tier], modality:M[mod]||undefined, description:desc}))};
+  // Link-Inhalt ist fremde Eingabe: nur saubere Zahlen, echte Video-ID und gekürzte Texte übernehmen.
+  const num = (v, max) => { const n = Number(v); return Number.isFinite(n) ? Math.min(Math.max(0, Math.floor(n)), max) : 0; };
+  const str = (v, max) => String(v ?? "").slice(0, max);
+  if (!/^[\w-]{11}$/.test(String(d.i)) || !Array.isArray(d.f)) throw new Error("ungültiger Link");
+  return {id:d.i, title:str(d.n, 120), duration:num(d.d, 86400), scanned_at:str(d.s, 10), passes:num(d.p, 2) || 1, done:!!d.c, shared:true,
+    findings:d.f.slice(0, 500).filter(Array.isArray).map(([t, len, tier, mod, desc]) => { t = num(t, 86400);
+      return {t, start:mmss2(t), end:mmss2(t + num(len, 86400)), tier:T[tier] || "warn", modality:M[mod]||undefined, description:str(desc, 300)}; })};
 }
 async function shareLink(r){
   const base = location.origin + location.pathname + "#s=";
@@ -581,7 +586,7 @@ function render(r){
   const dur = r.duration || Math.max(1, ...fs.map(f=>f.t||0));
   const fb = store.get("rr_feedback", {})[r.id] || {verdicts:{}, missed:[]};
   const card = (f, i) => { const v = fb.verdicts[i]; return `<div class="f ${f.tier}">
-    <button class="time" data-t="${f.t}">${esc(f.start)}${f.end&&f.end!==f.start?"–"+esc(f.end):""}</button>
+    <button class="time" data-t="${esc(f.t)}">${esc(f.start)}${f.end&&f.end!==f.start?"–"+esc(f.end):""}</button>
     <div class="desc">${f.song&&f.song!=="unbekannt"?`<b>🎵 ${esc(f.song)}</b> · `:""}${esc(f.description)}</div>
     ${f.action?`<div class="act"><b>Empfehlung:</b> ${esc(f.action)}</div>`:""}
     <div class="tags">${f.modality?`<span class="tag">${MOD[f.modality]||esc(f.modality)}</span>`:""}${f.context?`<span class="tag">${CTX[f.context]||esc(f.context)}</span>`:""}${f.category?`<span class="tag">${esc(f.category)}</span>`:""}${f.suspect?`<span class="tag suspect">${esc(f.suspect)}</span>`:""}</div>
@@ -604,7 +609,7 @@ function render(r){
     ${/alte Einstufung/.test(r.scanned_at||"")?`<div class="box">Älterer Testlauf mit vorläufiger Einstufung. Ein Neu-Scan mit der aktuellen Einstufung folgt.</div>`:""}
     <div class="summary">${valid.length ? `${count("ban")?`<span class="chip ban">${count("ban")} Bann-Risiko</span>`:""}${count("warn")?`<span class="chip warn">${count("warn")} Einordnen</span>`:""}${count("music")?`<span class="chip music">${count("music")} Musik</span>`:""}${count("info")?`<span class="chip info">${count("info")} Hinweis</span>`:""}` : `<span class="chip ok">Keine Funde</span>`}</div>
     <div class="timeline">${valid.map(f => { const a=(f.t||0)/dur*100, w=Math.max(.4,(parse(f.end)-f.t)/dur*100);
-      return `<button class="m ${f.tier}" data-t="${f.t}" title="${esc(f.start)} ${esc(TIER[f.tier])}: ${esc(f.description)}" style="left:${a}%;width:${w}%"></button>`; }).join("")}
+      return `<button class="m ${esc(f.tier)}" data-t="${esc(f.t)}" title="${esc(f.start)} ${esc(TIER[f.tier])}: ${esc(f.description)}" style="left:${a}%;width:${w}%"></button>`; }).join("")}
       <div class="ticks"><span>0:00</span><span>${mmss(dur/2)}</span><span>${mmss(dur)}</span></div></div>
     ${groups || `<div class="empty">Nichts gefunden. Das heißt nicht „garantiert sicher“, aber Bild und Ton wurden komplett geprüft.</div>`}
     <div class="panel" style="margin-top:18px">
