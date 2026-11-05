@@ -436,7 +436,7 @@ function applyLang(){
   set("#f2 button", "Check video");
   set(".subform", '<label title="Check every section twice: finds clearly more, uses twice the quota."><input type="checkbox" id="thorough2"> thorough check</label><span>or <a href="#beispiele">see finished examples</a></span>');
   set(".trust", "<span>Free</span><span>No sign-up</span><span>No cookies</span>");
-  set(".float.a", '<span class="dot ban"></span>21:19 skip'); set(".float.b", '<span class="dot music"></span>Song recognised');
+  set(".float.a", '<span class="dot ban"></span>12:28 skip'); set(".float.b", '<span class="dot ban"></span>9× ban risk'); 
   set("#mock", "Open example result", "aria-label");
   const secs = document.querySelectorAll("#home .sec");
   const t = (i, sel, html) => { const el = secs[i] && secs[i].querySelector(sel); if (el) el.innerHTML = html; };
@@ -452,7 +452,7 @@ function applyLang(){
   (secs[1] ? secs[1].querySelectorAll(".step") : []).forEach((el, i) => el.innerHTML = `<b>${st[i][0]}</b><span>${st[i][1]}</span>`);
   t(1, "p.sub", "For your own checks you need a free Gemini key from Google (takes about a minute). The examples work without one.");
   t(2, ".kicker", "Examples from testing"); t(2, ".h", "Real videos, real findings");
-  t(2, ".secsub", "Suggestions from German reaction channels, checked with ReactRadar. Click one to see timeline and findings (descriptions translated).");
+  t(2, ".secsub", "Videos that Twitch streamers like xQc and Asmongold reacted to, plus German test cases. Click one to see timeline and findings.");
   const sp = secs[3] ? secs[3].querySelectorAll(".card") : [];
   if (sp[0]) sp[0].innerHTML = '<p class="kicker">Common objection</p><h2 class="h">“We don\'t save VODs”</h2><p>Only protects you partly. Twitch now analyses livestreams with AI itself, and bans come from reports and clips, live in the moment.</p><p style="margin-top:16px"><a class="btn-ghost" href="#warum">Why that isn\'t enough →</a></p>';
   if (sp[1]) sp[1].innerHTML = '<span class="soon">New</span><h2 class="h">ReactRadar as a Discord bot</h2><p>The bot reads along in your suggestion channel and replies to every YouTube link with the findings, in English if you like. Each server uses its own free Gemini key.</p><p style="margin-top:16px"><a class="btn-ghost" href="#mods">How mods use ReactRadar →</a></p>';
@@ -732,7 +732,7 @@ function render(r){
 }
 
 /* ---------- Startseite ---------- */
-const HOME_EX = "fZfL17ZJuY8", HOME_ROWS = ["11:58", "21:19", "33:28"];
+const HOME_EX = L("fZfL17ZJuY8", "VKXQnBlzqzs"), HOME_ROWS = L(["11:58", "21:19", "33:28"], ["00:23", "04:03", "12:28"]);
 const short = (t, n) => { t = String(t||""); return t.length > n ? t.slice(0, n-1).replace(/\s+\S*$/, "") + " …" : t; };
 const counts = r => { const v = (r.findings||[]).filter(f=>!f.suspect); return t => v.filter(f=>f.tier===t).length; };
 function chipsOf(r, long){
@@ -758,8 +758,9 @@ function home(){
       ${rows.map(f => `<div class="mrow"><span class="tm">${esc(f.start.replace(/^0/,""))}</span><span class="dot ${f.tier}"></span><span>${f.song&&f.song!=="unbekannt"?"🎵 ":""}${esc(short(DESC(f), 62))}</span></div>`).join("")}`;
     $("#mock").onclick = () => { location.hash = r.id; };
   }
+  const own = x => (x.lang || "de") === LANG ? 1 : 0;  // Beispiele in der Seitensprache zuerst
   const all = Object.values(EXAMPLES).sort((a, b) => { const ca = counts(a), cb = counts(b);
-    return (cb("ban")*3 + cb("warn") + cb("music")) - (ca("ban")*3 + ca("warn") + ca("music")); });
+    return (own(b) - own(a)) * 1000 + (cb("ban")*3 + cb("warn") + cb("music")) - (ca("ban")*3 + ca("warn") + ca("music")); });
   $("#exgrid").innerHTML = all.map(x => { const dur = x.duration || 1;
     return `<a class="ex" href="#${x.id}"><div class="t">${esc(x.title)}</div><div class="c">${chipsOf(x)}<span class="sub">${x.duration?mmss(x.duration):""}</span></div>
       <div class="mini">${(x.findings||[]).filter(f=>!f.suspect).map(f => `<i class="${f.tier}" style="left:${(f.t||0)/dur*100}%;width:${Math.max(.5,(parse(f.end)-f.t)/dur*100)}%"></i>`).join("")}</div></a>`; }).join("")
