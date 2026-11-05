@@ -42,6 +42,8 @@ form#f{flex:1;display:flex;gap:8px;min-width:260px;align-items:center}
 body.is-home form#f{visibility:hidden}
 .topnav{display:flex;gap:20px;font-size:14px;font-weight:700;white-space:nowrap;margin-left:auto}
 .topnav a{color:var(--soft);text-decoration:none}.topnav a:hover{color:#fff}
+.topnav .langsw{border:1px solid var(--line2);border-radius:8px;padding:0 8px;font-size:12px;letter-spacing:.05em}
+@media (max-width:760px){.topnav .langsw{order:-1}}
 @media (max-width:760px){.topnav{gap:14px;font-size:13px;width:100%;margin:0;overflow-x:auto}body.is-home form#f{display:none}}
 
 /* Formularelemente */
@@ -225,7 +227,7 @@ ol.steps,ul.steps{padding-left:20px;margin:8px 0} ol.steps li,ul.steps li{margin
     <label class="sub" title="Jeden Abschnitt zweimal prüfen und zusammenführen: findet deutlich mehr, braucht doppelt so viel Kontingent." style="display:flex;align-items:center;gap:5px;white-space:nowrap"><input type="checkbox" id="thorough"> gründlich</label>
     <button class="primary" id="go">Prüfen</button>
   </form>
-  <nav class="topnav"><a href="#beispiele">Beispiele</a><a href="#mods">Für Mods</a><a href="#warum">Warum auch ohne VODs?</a></nav>
+  <nav class="topnav"><a href="#beispiele">Beispiele</a><a href="#mods">Für Mods</a><a href="#warum">Warum auch ohne VODs?</a><a href="?lang=en" id="langSw" class="langsw" title="English">EN</a></nav>
   </div>
 </header>
 
@@ -332,10 +334,12 @@ ol.steps,ul.steps{padding-left:20px;margin:8px 0} ol.steps li,ul.steps li{margin
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
-const TIER = {ban:"Bann-Risiko", warn:"Einordnen", info:"Hinweis", music:"Musik (DMCA)"};
-const HINT = {ban:"überspringen oder ausblenden", warn:"nur mit Distanzierung zeigen", info:"Werbetauglichkeit", music:"Ton leiser/aus oder überspringen, sonst VOD-Stummschaltung oder Strike"};
-const CTX = {documentary:"Doku/Bericht", critical:"kritisch eingeordnet", endorsing:"befürwortend", neutral:"neutral", unknown:"Kontext unklar"};
-const MOD = {visual:"Bild", audio:"Ton", both:"Bild + Ton"};
+const TIER_DE = {ban:"Bann-Risiko", warn:"Einordnen", info:"Hinweis", music:"Musik (DMCA)"}, TIER_EN = {ban:"Ban risk", warn:"Needs context", info:"Note", music:"Music (DMCA)"};
+const HINT_DE = {ban:"überspringen oder ausblenden", warn:"nur mit Distanzierung zeigen", info:"Werbetauglichkeit", music:"Ton leiser/aus oder überspringen, sonst VOD-Stummschaltung oder Strike"},
+      HINT_EN = {ban:"skip or hide", warn:"only show with a clear stance", info:"brand safety", music:"lower/mute or skip, otherwise muted VOD or strike"};
+const CTX_DE = {documentary:"Doku/Bericht", critical:"kritisch eingeordnet", endorsing:"befürwortend", neutral:"neutral", unknown:"Kontext unklar"},
+      CTX_EN = {documentary:"documentary/report", critical:"critically framed", endorsing:"endorsing", neutral:"neutral", unknown:"context unclear"};
+const MOD_DE = {visual:"Bild", audio:"Ton", both:"Bild + Ton"}, MOD_EN = {visual:"picture", audio:"sound", both:"picture + sound"};
 const MODELS = ["gemini-3.6-flash","gemini-3.8-flash","gemini-flash-latest","gemini-3.5-flash-lite","gemini-3.1-flash-lite"];
 const CHUNK = 600, MAXDUR = 120*60;
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
@@ -348,6 +352,19 @@ const store = {
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
 };
 let EXAMPLES = {}, player = null, current = null;
+
+/* ---------- Sprache: ?lang=en|de > gespeicherte Wahl > Browsersprache ---------- */
+const LANG = (() => {
+  const q = new URLSearchParams(location.search).get("lang");
+  if (q === "de" || q === "en"){ store.set("rr_lang", q); return q; }
+  const saved = store.get("rr_lang", "");
+  if (saved === "de" || saved === "en") return saved;
+  return /^de\b/i.test(navigator.language || "") ? "de" : "en";
+})();
+const L = (de, en) => LANG === "en" ? en : de;
+const TIER = L(TIER_DE, TIER_EN), HINT = L(HINT_DE, HINT_EN), CTX = L(CTX_DE, CTX_EN), MOD = L(MOD_DE, MOD_EN);
+const DESC = f => (LANG === "en" && f.description_en) || f.description || "";
+const ACT = f => (LANG === "en" && f.action_en) || f.action || "";
 
 const PROMPT = `Du prüfst ein Video für einen Twitch-Streamer, der es live im Stream zeigen (darauf reagieren) will.
 Schau dir BILD UND TON vollständig an. Achte besonders auf Dinge, die nur im Bild sind
@@ -396,9 +413,63 @@ Zeitstempel relativ zum Anfang DIESES Ausschnitts (beginnt bei 00:00).`;
 /* ---------- Schlüssel ---------- */
 function keyUI(){
   const k = store.get("rr_key", "");
-  $("#keyState").innerHTML = k ? `<span class="ok">✔ Schlüssel gespeichert</span> · <button class="small" id="delKey">entfernen</button>` : "Kein Schlüssel hinterlegt.";
+  $("#keyState").innerHTML = k ? `<span class="ok">✔ ${L("Schlüssel gespeichert", "Key saved")}</span> · <button class="small" id="delKey">${L("entfernen", "remove")}</button>` : L("Kein Schlüssel hinterlegt.", "No key saved.");
   const d = $("#delKey"); if (d) d.onclick = () => { store.set("rr_key", ""); keyUI(); };
 }
+/* ---------- Englische Fassung der festen Seitentexte ---------- */
+function applyLang(){
+  const sw = $("#langSw");
+  sw.textContent = L("EN", "DE"); sw.title = L("English", "Deutsch");
+  sw.onclick = e => { e.preventDefault(); store.set("rr_lang", L("en", "de")); location.href = location.pathname + "?lang=" + L("en", "de") + location.hash; };
+  if (LANG !== "en") return;
+  document.documentElement.lang = "en";
+  document.title = "ReactRadar · Test version";
+  const set = (sel, html, attr) => document.querySelectorAll(sel).forEach(el => attr ? el.setAttribute(attr, html) : (el.innerHTML = html));
+  set(".beta", "Test version");
+  set("#url, #url2", "Paste a YouTube link …", "placeholder");
+  set("#go", "Check");
+  set("form#f label", '<input type="checkbox" id="thorough"> thorough');
+  set(".topnav a[href='#beispiele']", "Examples"); set(".topnav a[href='#mods']", "For mods"); set(".topnav a[href='#warum']", "Why even without VODs?");
+  set(".eyebrow", '<span class="puls"></span>For Twitch streamers and mods');
+  set(".hero h1", 'Check first.<br><span class="grad">Then react.</span>');
+  set(".lede", "ReactRadar watches a YouTube video in advance, <b>picture and sound</b>, and marks every spot that can get you in trouble on stream. Even the poster in the background you'd miss at first glance.");
+  set("#f2 button", "Check video");
+  set(".subform", '<label title="Check every section twice: finds clearly more, uses twice the quota."><input type="checkbox" id="thorough2"> thorough check</label><span>or <a href="#beispiele">see finished examples</a></span>');
+  set(".trust", "<span>Free</span><span>No sign-up</span><span>No cookies</span>");
+  set(".float.a", '<span class="dot ban"></span>21:19 skip'); set(".float.b", '<span class="dot music"></span>Song recognised');
+  set("#mock", "Open example result", "aria-label");
+  const secs = document.querySelectorAll("#home .sec");
+  const t = (i, sel, html) => { const el = secs[i] && secs[i].querySelector(sel); if (el) el.innerHTML = html; };
+  t(0, ".kicker", "What ReactRadar finds"); t(0, ".h", "The spots that can cost you your channel");
+  t(0, ".secsub", "A ban doesn't come from the topic, it comes from seconds: a calendar on the wall, a word in the background, a gesture as a joke. Exactly those are what ReactRadar looks for.");
+  const cards = secs[0] ? secs[0].querySelectorAll(".card") : [];
+  const ct = [["Picture and sound", "Nudity even on posters, Nazi gestures, slurs, hate speech, gore and music with DMCA risk. Every minute is checked, not just the transcript."],
+              ["Timestamps and advice", "Every spot with a rating: skip, add context or mute. One click jumps right there in the video."],
+              ["List for the mod channel", "The skip list fits into one Discord message. During the reaction everyone has the times at hand."]];
+  cards.forEach((c, i) => { c.querySelector("h3").textContent = ct[i][0]; c.querySelector("p").textContent = ct[i][1]; });
+  t(1, ".kicker", "How it works"); t(1, ".h", "Ready in two minutes"); t(1, ".secsub", "A 40-minute video is checked in about 1 to 2 minutes.");
+  const st = [["Paste the link", "Copy the video from the suggestion channel and paste it at the top."], ["See the findings", "Timeline, rating and advice. Have a quick look at the touchy spots yourself."], ["Share the list", "Skip list or link into the mod channel, and the stream can start."]];
+  (secs[1] ? secs[1].querySelectorAll(".step") : []).forEach((el, i) => el.innerHTML = `<b>${st[i][0]}</b><span>${st[i][1]}</span>`);
+  t(1, "p.sub", "For your own checks you need a free Gemini key from Google (takes about a minute). The examples work without one.");
+  t(2, ".kicker", "Examples from testing"); t(2, ".h", "Real videos, real findings");
+  t(2, ".secsub", "Suggestions from German reaction channels, checked with ReactRadar. Click one to see timeline and findings (descriptions translated).");
+  const sp = secs[3] ? secs[3].querySelectorAll(".card") : [];
+  if (sp[0]) sp[0].innerHTML = '<p class="kicker">Common objection</p><h2 class="h">“We don\'t save VODs”</h2><p>Only protects you partly. Twitch now analyses livestreams with AI itself, and bans come from reports and clips, live in the moment.</p><p style="margin-top:16px"><a class="btn-ghost" href="#warum">Why that isn\'t enough →</a></p>';
+  if (sp[1]) sp[1].innerHTML = '<span class="soon">New</span><h2 class="h">ReactRadar as a Discord bot</h2><p>The bot reads along in your suggestion channel and replies to every YouTube link with the findings, in English if you like. Each server uses its own free Gemini key.</p><p style="margin-top:16px"><a class="btn-ghost" href="#mods">How mods use ReactRadar →</a></p>';
+  set(".cta .h", "Try it with your next suggestion"); set(".cta p", "ReactRadar is a test version. Every bit of feedback makes it better."); set("#ctaTop", "Check video");
+  const ps = document.querySelectorAll("aside .panel");
+  if (ps[0]) ps[0].innerHTML = `<h2>Your Gemini key</h2><div id="keyState" class="sub"></div><div class="keyrow"><input type="password" id="key" placeholder="AQ.… or AIza…" autocomplete="off"><button id="saveKey">Save</button></div>
+    <p class="sub">Only needed to check <b>your own</b> videos. Free at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> (“Create API key”). The key stays in your browser and only goes to Google.</p>`;
+  if (ps[1]) ps[1].innerHTML = `<h2>Rating</h2>
+    <p><span class="chip ban">Ban risk</span> Nudity (also on posters), sexualisation of minors, Nazi gestures/symbols, slurs, gore. Skip or hide.</p>
+    <p><span class="chip warn">Needs context</span> Hate speech, extremism in reports, sexual innuendo. Only show with a clear stance.</p>
+    <p><span class="chip music">Music (DMCA)</span> Recognisable songs, also in the background. Lead to muted VODs or strikes on Twitch.</p>
+    <p><span class="chip info">Note</span> Insults, drugs, vulgarity. Relevant for Twitch's AI brand safety check.</p>`;
+  if (ps[2]) { const h = ps[2].querySelectorAll("h2"); h[0].textContent = "Your checks"; if (h[1]) h[1].textContent = "Examples"; }
+  set(".sitefoot", `<a href="#datenschutz">Legal notice &amp; privacy</a> · <a href="#mods">For mods</a> · <a href="#warum">Why even without VODs?</a>
+    <a class="xc" href="https://xetcraft.de" target="_blank" rel="noopener" title="Xetcraft, the workshop of XetrovT2000"><span>A project by</span><img src="xetcraft-logo-dunkel.png" width="107" height="22" alt="Xetcraft"></a>`);
+}
+applyLang();
 $("#saveKey").onclick = () => { const v = $("#key").value.trim(); if (v){ store.set("rr_key", v); $("#key").value = ""; keyUI(); } };
 
 /* ---------- Gemini ---------- */
@@ -408,29 +479,29 @@ async function callChunk(vid, start, end, log){
   const exhausted = store.get("rr_exhausted", {});
   const body = {contents:[{parts:[
       {file_data:{file_uri:`https://www.youtube.com/watch?v=${vid}`}, video_metadata:{start_offset:`${start}s`, end_offset:`${end}s`}},
-      {text: PROMPT}]}],
+      {text: PROMPT + L("", "\nWICHTIG: Schreibe \"description\", \"action\" und \"notes\" auf ENGLISCH (kurz, sachlich). Zitate im Originalwortlaut in Anführungszeichen lassen; \"song\" wenn nicht erkannt weiter \"unbekannt\".")}]}],
     generationConfig:{responseMimeType:"application/json", temperature:0}};
   for (let attempt=0; attempt<15; attempt++){
     const usable = MODELS.filter(m => exhausted[m] !== today);
     if (!usable.length) return {quota:true};
     const model = usable[attempt % usable.length];
-    log(`Abschnitt ab ${mmss(start)} · ${model}`);
+    log(`${L("Abschnitt ab", "Section from")} ${mmss(start)} · ${model}`);
     let res;
     try{
       res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
         {method:"POST", headers:{"x-goog-api-key":key, "Content-Type":"application/json"}, body:JSON.stringify(body)});
-    }catch(e){ log("Netzwerkfehler, neuer Versuch …"); await sleep(5000); continue; }
-    if (res.status === 400 || res.status === 403){ const t = await res.text(); throw new Error("Gemini lehnt den Schlüssel oder die Anfrage ab: " + t.slice(0,200)); }
+    }catch(e){ log(L("Netzwerkfehler, neuer Versuch …", "Network error, retrying …")); await sleep(5000); continue; }
+    if (res.status === 400 || res.status === 403){ const t = await res.text(); throw new Error(L("Gemini lehnt den Schlüssel oder die Anfrage ab: ", "Gemini rejected the key or the request: ") + t.slice(0,200)); }
     if (res.status === 429){ exhausted[model] = today; store.set("rr_exhausted", exhausted); continue; }
-    if (!res.ok){ log(`Gemini ${res.status} (überlastet?), neuer Versuch …`); await sleep(8000); continue; }
+    if (!res.ok){ log(`Gemini ${res.status} ${L("(überlastet?), neuer Versuch …", "(overloaded?), retrying …")}`); await sleep(8000); continue; }
     const r = await res.json();
     if (!r.candidates){
       const reason = (r.promptFeedback||{}).blockReason || "?";
       return {blocked:true, model, findings:[{start:"00:00", end:"00:00", tier:"ban", category:"blocked", modality:"both", context:"unknown",
-        description:`Google verweigert die Analyse dieses Videos (${reason}). Das passiert u. a. bei Nacktheit.`, action:"Nicht ungeprüft zeigen."}]};
+        description:L(`Google verweigert die Analyse dieses Videos (${reason}). Das passiert u. a. bei Nacktheit.`, `Google refused to analyse this video (${reason}). This happens e.g. with nudity.`), action:L("Nicht ungeprüft zeigen.", "Don't show it unchecked.")}]};
     }
     let parsed = {};
-    try{ parsed = JSON.parse(r.candidates[0].content.parts.at(-1).text); }catch{ log("Antwort nicht lesbar, neuer Versuch …"); continue; }
+    try{ parsed = JSON.parse(r.candidates[0].content.parts.at(-1).text); }catch{ log(L("Antwort nicht lesbar, neuer Versuch …", "Unreadable answer, retrying …")); continue; }
     return {model, findings: findingsOf(parsed)};
   }
   return {failed:true};
@@ -471,7 +542,7 @@ async function videoMeta(vid){
   const holder = document.createElement("div"); holder.style.cssText="position:absolute;width:1px;height:1px;left:-9999px"; document.body.appendChild(holder);
   const inner = document.createElement("div"); holder.appendChild(inner);
   return new Promise((res, rej) => {
-    const timer = setTimeout(() => { holder.remove(); rej(new Error("Video konnte nicht geladen werden.")); }, 20000);
+    const timer = setTimeout(() => { holder.remove(); rej(new Error(L("Video konnte nicht geladen werden.", "Video could not be loaded."))); }, 20000);
     const p = new YT.Player(inner, {videoId:vid, host:"https://www.youtube-nocookie.com", playerVars:{mute:1},
       events:{
         onReady: async () => {
@@ -479,7 +550,7 @@ async function videoMeta(vid){
           const title = (p.getVideoData && p.getVideoData().title) || vid;
           clearTimeout(timer); p.destroy(); holder.remove(); res({duration: Math.round(d), title});
         },
-        onError: () => { clearTimeout(timer); holder.remove(); rej(new Error("Video nicht verfügbar oder Einbetten nicht erlaubt.")); }
+        onError: () => { clearTimeout(timer); holder.remove(); rej(new Error(L("Video nicht verfügbar oder Einbetten nicht erlaubt.", "Video unavailable or embedding not allowed."))); }
       }});
   });
 }
@@ -487,31 +558,35 @@ async function videoMeta(vid){
 /* ---------- Prüfung ---------- */
 async function scan(vid){
   track("/pruefung-gestartet");
-  if (!store.get("rr_key","")){ document.body.classList.remove("is-home"); window.scrollTo(0, 0); showView(`<div class="box"><b>Für eigene Prüfungen brauchst du einen kostenlosen Gemini-Schlüssel.</b>
+  if (!store.get("rr_key","")){ document.body.classList.remove("is-home"); window.scrollTo(0, 0); showView(L(`<div class="box"><b>Für eigene Prüfungen brauchst du einen kostenlosen Gemini-Schlüssel.</b>
     <ol class="steps"><li>Öffne <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> und melde dich mit einem Google-Konto an.</li>
     <li>Klicke „Create API key“ und kopiere den Schlüssel.</li><li>Füge ihn rechts unter „Dein Gemini-Schlüssel“ ein.</li></ol>
-    Die Gratisstufe reicht für mehrere Videos am Tag. Es fallen keine Kosten an, solange du in AI Studio keine Abrechnung einrichtest.</div>`); return; }
+    Die Gratisstufe reicht für mehrere Videos am Tag. Es fallen keine Kosten an, solange du in AI Studio keine Abrechnung einrichtest.</div>`,
+    `<div class="box"><b>To check your own videos you need a free Gemini key.</b>
+    <ol class="steps"><li>Open <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> and sign in with a Google account.</li>
+    <li>Click “Create API key” and copy the key.</li><li>Paste it on the right under “Your Gemini key”.</li></ol>
+    The free tier is enough for several videos a day. It costs nothing as long as you don't set up billing in AI Studio.</div>`)); return; }
   $("#go").disabled = true;
   document.body.classList.remove("is-home"); window.scrollTo(0, 0);
-  showView(`<div class="title">Prüfe Video …</div><div class="sub" id="pt">Video wird geladen</div><div class="bar"><div id="pb" style="width:3%"></div></div><div class="sub" id="pl"></div>`);
+  showView(`<div class="title">${L("Prüfe Video …", "Checking video …")}</div><div class="sub" id="pt">${L("Video wird geladen", "Loading video")}</div><div class="bar"><div id="pb" style="width:3%"></div></div><div class="sub" id="pl"></div>`);
   try{
     const {duration, title} = await videoMeta(vid);
-    if (!duration) throw new Error("Länge des Videos unbekannt (Livestream?).");
-    if (duration > MAXDUR) throw new Error(`Video ist länger als ${MAXDUR/60} Minuten.`);
-    const rec = {id:vid, title, duration, findings:[], models:[], scanned_at:new Date().toLocaleString("de-DE"), done:false, mine:true, passes: $("#thorough").checked ? 2 : 1};
+    if (!duration) throw new Error(L("Länge des Videos unbekannt (Livestream?).", "Video length unknown (livestream?)."));
+    if (duration > MAXDUR) throw new Error(L(`Video ist länger als ${MAXDUR/60} Minuten.`, `Video is longer than ${MAXDUR/60} minutes.`));
+    const rec = {id:vid, title, duration, findings:[], models:[], scanned_at:new Date().toLocaleString(L("de-DE", "en-GB")), done:false, mine:true, lang:LANG, passes: $("#thorough").checked ? 2 : 1};
     const chunks = []; for (let s=0; s<duration; s+=CHUNK) chunks.push(s);
     for (let i=0; i<chunks.length; i++){
       const s = chunks[i];
-      $("#pt").textContent = `${title} · Abschnitt ${i+1} von ${chunks.length} (je 10 Minuten)`;
+      $("#pt").textContent = `${title} · ${L(`Abschnitt ${i+1} von ${chunks.length} (je 10 Minuten)`, `Section ${i+1} of ${chunks.length} (10 minutes each)`)}`;
       $("#pb").style.width = ((i+0.5)/chunks.length*100) + "%";
       const r = await callChunk(vid, s, Math.min(s+CHUNK, duration), m => $("#pl").textContent = m);
-      if (r.quota){ rec.error = "Gratis-Kontingent für heute aufgebraucht."; break; }
-      if (r.failed){ rec.error = "Gemini nicht erreichbar."; break; }
+      if (r.quota){ rec.error = L("Gratis-Kontingent für heute aufgebraucht.", "Free quota for today used up."); break; }
+      if (r.failed){ rec.error = L("Gemini nicht erreichbar.", "Gemini not reachable."); break; }
       rec.models.push(r.model);
       let found = r.findings.map(x => normalize(x, s, duration));
       if (!r.blocked && $("#thorough").checked){
-        $("#pl").textContent = "zweiter Durchlauf …";
-        const r2 = await callChunk(vid, s, Math.min(s+CHUNK, duration), m => $("#pl").textContent = "2. Durchlauf: " + m);
+        $("#pl").textContent = L("zweiter Durchlauf …", "second pass …");
+        const r2 = await callChunk(vid, s, Math.min(s+CHUNK, duration), m => $("#pl").textContent = L("2. Durchlauf: ", "2nd pass: ") + m);
         if (r2.findings && !r2.blocked){ found = mergeFindings(found, r2.findings.map(x => normalize(x, s, duration))); rec.models.push(r2.model); }
       }
       if (r.blocked){ rec.findings = [normalize(r.findings[0], 0, duration)]; rec.done = true; break; }
@@ -532,7 +607,7 @@ const unb64u = s => Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),
 async function packShare(r, maxDesc){
   const T = {ban:"b", warn:"w", info:"i", music:"m"}, M = {visual:"v", audio:"a", both:"x"};
   const data = {i:r.id, n:r.title.slice(0,90), d:r.duration, s:String(r.scanned_at).slice(0,10), p:r.passes||1, c:r.done===false?0:1,
-    f:(r.findings||[]).filter(f=>!f.suspect).map(f => [f.t, parse(f.end)-f.t, T[f.tier]||"w", M[f.modality]||"", (f.song&&f.song!=="unbekannt"?"🎵 "+f.song+" · ":"")+String(f.description||"").slice(0,maxDesc)])};
+    f:(r.findings||[]).filter(f=>!f.suspect).map(f => [f.t, parse(f.end)-f.t, T[f.tier]||"w", M[f.modality]||"", (f.song&&f.song!=="unbekannt"?"🎵 "+f.song+" · ":"")+String(DESC(f)).slice(0,maxDesc)])};
   const stream = new Blob([JSON.stringify(data)]).stream().pipeThrough(new CompressionStream("deflate-raw"));
   return b64u(await new Response(stream).arrayBuffer());
 }
@@ -549,7 +624,7 @@ async function unpackShare(code){
       return {t, start:mmss2(t), end:mmss2(t + num(len, 86400)), tier:T[tier] || "warn", modality:M[mod]||undefined, description:str(desc, 300)}; })};
 }
 async function shareLink(r){
-  const base = location.origin + location.pathname + "#s=";
+  const base = location.origin + location.pathname + L("", "?lang=en") + "#s=";
   for (const n of [160, 110, 70, 40]){
     const url = base + await packShare(r, n);
     if (url.length <= 1900 || n === 40) return {url, cut: n < 160};
@@ -558,11 +633,11 @@ async function shareLink(r){
 
 /* ---------- Überspringen-Liste für Mods/Chat ---------- */
 function skipList(r){
-  const ICON = {ban:"🔴", warn:"🟠", music:"🎵"}, DO = {ban:"überspringen", warn:"einordnen", music:"Ton aus"};
+  const ICON = {ban:"🔴", warn:"🟠", music:"🎵"}, DO = L({ban:"überspringen", warn:"einordnen", music:"Ton aus"}, {ban:"skip", warn:"add context", music:"mute"});
   const items = (r.findings||[]).filter(f => !f.suspect && ICON[f.tier]).sort((a,b) => a.t-b.t);
   const build = n => [`ReactRadar · ${r.title} – https://youtu.be/${r.id}`].concat(items.map(f => {
       const rng = f.start + (f.end && f.end !== f.start ? "–" + f.end : "");
-      const what = f.tier === "music" && f.song && f.song !== "unbekannt" ? f.song : String(f.description||"");
+      const what = f.tier === "music" && f.song && f.song !== "unbekannt" ? f.song : String(DESC(f));
       return `${ICON[f.tier]} ${rng} ${DO[f.tier]}` + (n ? ` · ${what.length > n ? what.slice(0, n-1) + "…" : what}` : "");
     })).join("\n");
   for (const n of [60, 35, 0]){ const s = build(n); if (s.length < 1900 || n === 0) return s; }
@@ -575,9 +650,9 @@ function lists(){
   const item = r => { const v = (r.findings||[]).filter(f=>!f.suspect), c = t => v.filter(f=>f.tier===t).length;
     return `<a href="#${r.id}" class="${current===r.id?"active":""}"><div class="t">${esc(r.title)}</div><div class="c">${
       c("ban")?`<span class="chip ban">${c("ban")}</span>`:""}${c("warn")?`<span class="chip warn">${c("warn")}</span>`:""}${c("info")?`<span class="chip info">${c("info")}</span>`:""}${
-      !v.length?`<span class="chip ok">sauber</span>`:""}<span class="sub">${r.duration?mmss(r.duration):""}</span></div></a>`; };
+      !v.length?`<span class="chip ok">${L("sauber", "clean")}</span>`:""}<span class="sub">${r.duration?mmss(r.duration):""}</span></div></a>`; };
   const m = Object.values(mine).sort((a,b)=>String(b.scanned_at).localeCompare(String(a.scanned_at)));
-  $("#mine").innerHTML = m.length ? m.map(item).join("") : `<div class="sub">Noch keine eigenen Prüfungen.</div>`;
+  $("#mine").innerHTML = m.length ? m.map(item).join("") : `<div class="sub">${L("Noch keine eigenen Prüfungen.", "No checks of your own yet.")}</div>`;
   $("#examples").innerHTML = Object.values(EXAMPLES).map(item).join("") || `<div class="sub">–</div>`;
 }
 function get(id){ return store.get("rr_scans", {})[id] || EXAMPLES[id]; }
@@ -590,39 +665,39 @@ function render(r){
   const fb = store.get("rr_feedback", {})[r.id] || {verdicts:{}, missed:[]};
   const card = (f, i) => { const v = fb.verdicts[i]; return `<div class="f ${f.tier}">
     <button class="time" data-t="${esc(f.t)}">${esc(f.start)}${f.end&&f.end!==f.start?"–"+esc(f.end):""}</button>
-    <div class="desc">${f.song&&f.song!=="unbekannt"?`<b>🎵 ${esc(f.song)}</b> · `:""}${esc(f.description)}</div>
-    ${f.action?`<div class="act"><b>Empfehlung:</b> ${esc(f.action)}</div>`:""}
+    <div class="desc">${f.song&&f.song!=="unbekannt"?`<b>🎵 ${esc(f.song)}</b> · `:""}${esc(DESC(f))}</div>
+    ${ACT(f)?`<div class="act"><b>${L("Empfehlung", "Advice")}:</b> ${esc(ACT(f))}</div>`:""}
     <div class="tags">${f.modality?`<span class="tag">${MOD[f.modality]||esc(f.modality)}</span>`:""}${f.context?`<span class="tag">${CTX[f.context]||esc(f.context)}</span>`:""}${f.category?`<span class="tag">${esc(f.category)}</span>`:""}${f.suspect?`<span class="tag suspect">${esc(f.suspect)}</span>`:""}</div>
-    <div class="fb"><span class="sub">Passt das?</span>
-      <button class="small ${v==="ok"?"on-ok":""}" data-v="ok" data-i="${i}">✔ stimmt</button>
-      <button class="small ${v==="tier"?"on-bad":""}" data-v="tier" data-i="${i}">falsch eingestuft</button>
-      <button class="small ${v==="bad"?"on-bad":""}" data-v="bad" data-i="${i}">✖ Fehlalarm</button></div></div>`; };
+    <div class="fb"><span class="sub">${L("Passt das?", "Correct?")}</span>
+      <button class="small ${v==="ok"?"on-ok":""}" data-v="ok" data-i="${i}">✔ ${L("stimmt", "correct")}</button>
+      <button class="small ${v==="tier"?"on-bad":""}" data-v="tier" data-i="${i}">${L("falsch eingestuft", "wrong category")}</button>
+      <button class="small ${v==="bad"?"on-bad":""}" data-v="bad" data-i="${i}">✖ ${L("Fehlalarm", "false alarm")}</button></div></div>`; };
   const idx = new Map(fs.map((f,i)=>[f,i]));
   const groups = ["ban","warn","music","info"].map(t => { const list = fs.filter(f=>f.tier===t); if (!list.length) return "";
     const inner = list.map(f=>card(f, idx.get(f))).join("");
-    return t==="info" ? `<details class="group"><summary><span class="chip info">${TIER[t]}</span> <span class="sub">${list.length} · ${HINT[t]} (aufklappen)</span></summary>${inner}</details>`
-                      : `<div class="group"><h3><span class="chip ${t}">${TIER[t]}</span><span class="hint">${list.length} Stelle${list.length>1?"n":""} · ${HINT[t]}</span></h3>${inner}</div>`; }).join("");
+    return t==="info" ? `<details class="group"><summary><span class="chip info">${TIER[t]}</span> <span class="sub">${list.length} · ${HINT[t]} (${L("aufklappen", "expand")})</span></summary>${inner}</details>`
+                      : `<div class="group"><h3><span class="chip ${t}">${TIER[t]}</span><span class="hint">${list.length} ${L(list.length>1?"Stellen":"Stelle", list.length>1?"spots":"spot")} · ${HINT[t]}</span></h3>${inner}</div>`; }).join("");
   showView(`
     <div class="player"><div id="yt"></div></div>
     <div class="title">${esc(r.title)}</div>
-    <div class="sub">${r.duration?mmss(r.duration)+" · ":""}geprüft ${esc(r.scanned_at)}${r.mine?"":r.shared?" · geteilt":" · Beispiel"}${(r.passes||1)>1?" · gründlich (2 Durchläufe)":""} · <button class="small" id="rescan">selbst neu prüfen</button> · <button class="small" id="share">🔗 Link teilen</button> · <button class="small" id="skip">📋 Überspringen-Liste</button> <span class="sub" id="shareMsg"></span></div>
-    ${r.shared?`<div class="box">Geteiltes Ergebnis (Kurzfassung). Für Empfehlungen und Details das Video selbst prüfen.</div>`:""}
-    ${r.done===false?`<div class="box"><b>Unvollständig geprüft:</b> nur bis ${mmss(r.scanned_until||0)} von ${mmss(r.duration||0)}. ${esc(r.error||"")} Der Rest ist <b>nicht</b> geprüft.</div>`:""}
-    ${(r.models||[]).some(m=>/lite/.test(m||""))?`<div class="box"><b>Teilweise mit kleinem Modell geprüft</b> (Gratis-Kontingent der großen Modelle war aufgebraucht). Das kleine Modell übersieht mehr.</div>`:""}
-    ${/alte Einstufung/.test(r.scanned_at||"")?`<div class="box">Älterer Testlauf mit vorläufiger Einstufung. Ein Neu-Scan mit der aktuellen Einstufung folgt.</div>`:""}
-    <div class="summary">${valid.length ? `${count("ban")?`<span class="chip ban">${count("ban")} Bann-Risiko</span>`:""}${count("warn")?`<span class="chip warn">${count("warn")} Einordnen</span>`:""}${count("music")?`<span class="chip music">${count("music")} Musik</span>`:""}${count("info")?`<span class="chip info">${count("info")} Hinweis</span>`:""}` : `<span class="chip ok">Keine Funde</span>`}</div>
+    <div class="sub">${r.duration?mmss(r.duration)+" · ":""}${L("geprüft", "checked")} ${esc(r.scanned_at)}${r.mine?"":r.shared?L(" · geteilt", " · shared"):L(" · Beispiel", " · example")}${(r.passes||1)>1?L(" · gründlich (2 Durchläufe)", " · thorough (2 passes)"):""} · <button class="small" id="rescan">${L("selbst neu prüfen", "check again yourself")}</button> · <button class="small" id="share">🔗 ${L("Link teilen", "share link")}</button> · <button class="small" id="skip">📋 ${L("Überspringen-Liste", "skip list")}</button> <span class="sub" id="shareMsg"></span></div>
+    ${r.shared?`<div class="box">${L("Geteiltes Ergebnis (Kurzfassung). Für Empfehlungen und Details das Video selbst prüfen.", "Shared result (short version). Check the video yourself for advice and details.")}</div>`:""}
+    ${r.done===false?L(`<div class="box"><b>Unvollständig geprüft:</b> nur bis ${mmss(r.scanned_until||0)} von ${mmss(r.duration||0)}. ${esc(r.error||"")} Der Rest ist <b>nicht</b> geprüft.</div>`, `<div class="box"><b>Incomplete:</b> only checked up to ${mmss(r.scanned_until||0)} of ${mmss(r.duration||0)}. ${esc(r.error||"")} The rest is <b>not</b> checked.</div>`):""}
+    ${(r.models||[]).some(m=>/lite/.test(m||""))?L(`<div class="box"><b>Teilweise mit kleinem Modell geprüft</b> (große Modelle überlastet oder Kontingent aufgebraucht). Das kleine Modell übersieht mehr.</div>`, `<div class="box"><b>Partly checked with the small model</b> (large models overloaded or quota used up). The small model misses more.</div>`):""}
+    ${/alte Einstufung/.test(r.scanned_at||"")?`<div class="box">${L("Älterer Testlauf mit vorläufiger Einstufung. Ein Neu-Scan mit der aktuellen Einstufung folgt.", "Older test run with a provisional rating. A re-scan with the current rating will follow.")}</div>`:""}
+    <div class="summary">${valid.length ? `${count("ban")?`<span class="chip ban">${count("ban")} ${TIER.ban}</span>`:""}${count("warn")?`<span class="chip warn">${count("warn")} ${TIER.warn}</span>`:""}${count("music")?`<span class="chip music">${count("music")} ${L("Musik", "music")}</span>`:""}${count("info")?`<span class="chip info">${count("info")} ${TIER.info}</span>`:""}` : `<span class="chip ok">${L("Keine Funde", "No findings")}</span>`}</div>
     <div class="timeline">${valid.map(f => { const a=(f.t||0)/dur*100, w=Math.max(.4,(parse(f.end)-f.t)/dur*100);
-      return `<button class="m ${esc(f.tier)}" data-t="${esc(f.t)}" title="${esc(f.start)} ${esc(TIER[f.tier])}: ${esc(f.description)}" style="left:${a}%;width:${w}%"></button>`; }).join("")}
+      return `<button class="m ${esc(f.tier)}" data-t="${esc(f.t)}" title="${esc(f.start)} ${esc(TIER[f.tier])}: ${esc(DESC(f))}" style="left:${a}%;width:${w}%"></button>`; }).join("")}
       <div class="ticks"><span>0:00</span><span>${mmss(dur/2)}</span><span>${mmss(dur)}</span></div></div>
-    ${groups || `<div class="empty">Nichts gefunden. Das heißt nicht „garantiert sicher“, aber Bild und Ton wurden komplett geprüft.</div>`}
+    ${groups || `<div class="empty">${L("Nichts gefunden. Das heißt nicht „garantiert sicher“, aber Bild und Ton wurden komplett geprüft.", "Nothing found. That doesn't mean “guaranteed safe”, but picture and sound were checked completely.")}</div>`}
     <div class="panel" style="margin-top:18px">
-      <h2>Feedback für Raphael</h2>
-      <div class="sub">Etwas übersehen? Stelle eintragen (z. B. 12:34) und kurz beschreiben.</div>
-      <div class="missed"><input type="text" id="mt" placeholder="12:34"><input type="text" class="wide" id="md" placeholder="Was ist dort zu sehen/hören?"><button id="addMissed">hinzufügen</button></div>
+      <h2>${L("Feedback für Raphael", "Feedback for Raphael")}</h2>
+      <div class="sub">${L("Etwas übersehen? Stelle eintragen (z. B. 12:34) und kurz beschreiben.", "Missed something? Enter the spot (e.g. 12:34) and describe it briefly.")}</div>
+      <div class="missed"><input type="text" id="mt" placeholder="12:34"><input type="text" class="wide" id="md" placeholder="${L("Was ist dort zu sehen/hören?", "What can you see/hear there?")}"><button id="addMissed">${L("hinzufügen", "add")}</button></div>
       <div id="missedList" class="sub" style="margin-top:6px">${fb.missed.map(m=>`• ${esc(m.t)} – ${esc(m.d)}`).join("<br>")}</div>
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="primary" id="copyFb">Feedback kopieren</button><span class="sub" id="copied">und dann in Discord an Raphael schicken</span></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="primary" id="copyFb">${L("Feedback kopieren", "Copy feedback")}</button><span class="sub" id="copied">${L("und dann in Discord an Raphael schicken", "then send it to Raphael on Discord (kontakt@xetcraft.de works too)")}</span></div>
     </div>
-    <div class="disclaimer">ReactRadar ist ein Testprojekt und keine Garantie. Die KI kann Stellen übersehen oder falsch einordnen. Im Zweifel die markierten Stellen selbst ansehen.</div>`);
+    <div class="disclaimer">${L("ReactRadar ist ein Testprojekt und keine Garantie. Die KI kann Stellen übersehen oder falsch einordnen. Im Zweifel die markierten Stellen selbst ansehen.", "ReactRadar is a test project, not a guarantee. The AI can miss spots or rate them wrongly. When in doubt, watch the marked spots yourself.")}</div>`);
   document.querySelectorAll("[data-t]").forEach(b => b.onclick = () => seek(+b.dataset.t));
   document.querySelectorAll("[data-v]").forEach(b => b.onclick = () => {
     const all = store.get("rr_feedback", {}); const e = all[r.id] || {verdicts:{}, missed:[]};
@@ -633,25 +708,25 @@ function render(r){
     const y = window.scrollY; render(r); window.scrollTo(0, y); };
   $("#copyFb").onclick = async () => {
     const e = store.get("rr_feedback", {})[r.id] || {verdicts:{}, missed:[]};
-    const L = {ok:"stimmt", tier:"falsch eingestuft", bad:"Fehlalarm"};
+    const V = L({ok:"stimmt", tier:"falsch eingestuft", bad:"Fehlalarm"}, {ok:"correct", tier:"wrong category", bad:"false alarm"});
     const lines = [`ReactRadar-Feedback: ${r.title} (https://youtu.be/${r.id})`];
-    fs.forEach((f,i) => { if (e.verdicts[i]) lines.push(`- ${f.start} [${TIER[f.tier]}] ${f.description.slice(0,80)} → ${L[e.verdicts[i]]}`); });
-    e.missed.forEach(m => lines.push(`- VERPASST ${m.t}: ${m.d}`));
-    if (lines.length === 1) lines.push("- (noch keine Bewertung)");
-    try{ await navigator.clipboard.writeText(lines.join("\n")); $("#copied").textContent = "✔ kopiert – jetzt in Discord einfügen"; }
-    catch{ prompt("Zum Kopieren markieren:", lines.join("\n")); }
+    fs.forEach((f,i) => { if (e.verdicts[i]) lines.push(`- ${f.start} [${TIER[f.tier]}] ${DESC(f).slice(0,80)} → ${V[e.verdicts[i]]}`); });
+    e.missed.forEach(m => lines.push(`- ${L("VERPASST", "MISSED")} ${m.t}: ${m.d}`));
+    if (lines.length === 1) lines.push(L("- (noch keine Bewertung)", "- (no rating yet)"));
+    try{ await navigator.clipboard.writeText(lines.join("\n")); $("#copied").textContent = L("✔ kopiert, jetzt in Discord einfügen", "✔ copied, now paste it into Discord"); }
+    catch{ prompt(L("Zum Kopieren markieren:", "Select to copy:"), lines.join("\n")); }
   };
   $("#rescan").onclick = () => scan(r.id);
   $("#skip").onclick = async () => {
     const txt = skipList(r);
-    if (txt.split("\n").length < 2){ $("#shareMsg").textContent = "Nichts zu überspringen."; return; }
-    try{ await navigator.clipboard.writeText(txt); $("#shareMsg").textContent = "✔ Liste kopiert – für Chat oder Mod-Kanal"; }
-    catch{ prompt("Liste zum Kopieren:", txt); }
+    if (txt.split("\n").length < 2){ $("#shareMsg").textContent = L("Nichts zu überspringen.", "Nothing to skip."); return; }
+    try{ await navigator.clipboard.writeText(txt); $("#shareMsg").textContent = L("✔ Liste kopiert, für Chat oder Mod-Kanal", "✔ list copied, for chat or the mod channel"); }
+    catch{ prompt(L("Liste zum Kopieren:", "List to copy:"), txt); }
   };
   $("#share").onclick = async () => {
     const {url, cut} = await shareLink(r);
-    try{ await navigator.clipboard.writeText(url); $("#shareMsg").textContent = "✔ Link kopiert" + (cut ? " (Beschreibungen gekürzt, damit er in eine Discord-Nachricht passt)" : ""); }
-    catch{ prompt("Link zum Kopieren:", url); }
+    try{ await navigator.clipboard.writeText(url); $("#shareMsg").textContent = L("✔ Link kopiert", "✔ link copied") + (cut ? L(" (Beschreibungen gekürzt, damit er in eine Discord-Nachricht passt)", " (descriptions shortened to fit a Discord message)") : ""); }
+    catch{ prompt(L("Link zum Kopieren:", "Link to copy:"), url); }
   };
   ytReady().then(() => { player = new YT.Player("yt", {videoId:r.id, host:"https://www.youtube-nocookie.com", playerVars:{rel:0}}); });
 }
@@ -661,9 +736,10 @@ const HOME_EX = "fZfL17ZJuY8", HOME_ROWS = ["11:58", "21:19", "33:28"];
 const short = (t, n) => { t = String(t||""); return t.length > n ? t.slice(0, n-1).replace(/\s+\S*$/, "") + " …" : t; };
 const counts = r => { const v = (r.findings||[]).filter(f=>!f.suspect); return t => v.filter(f=>f.tier===t).length; };
 function chipsOf(r, long){
-  const c = counts(r), L = long ? {ban:" Bann-Risiko", warn:" Einordnen", music:" Musik", info:" Hinweis"} : {ban:" Bann", warn:" Einordnen", music:" Musik", info:" Hinweis"};
-  const out = ["ban","warn","music","info"].filter(t => c(t)).map(t => `<span class="chip ${t}">${c(t)}${L[t]}</span>`).join("");
-  return out || `<span class="chip ok">sauber</span>`;
+  const c = counts(r), N = LANG === "en" ? (long ? {ban:" ban risk", warn:" context", music:" music", info:" note"} : {ban:" ban", warn:" context", music:" music", info:" note"})
+                      : (long ? {ban:" Bann-Risiko", warn:" Einordnen", music:" Musik", info:" Hinweis"} : {ban:" Bann", warn:" Einordnen", music:" Musik", info:" Hinweis"});
+  const out = ["ban","warn","music","info"].filter(t => c(t)).map(t => `<span class="chip ${t}">${c(t)}${N[t]}</span>`).join("");
+  return out || `<span class="chip ok">${L("sauber", "clean")}</span>`;
 }
 function home(){
   current = null; lists();
@@ -673,13 +749,13 @@ function home(){
     const dur = r.duration || 1, fs = (r.findings||[]).filter(f=>!f.suspect);
     let rows = HOME_ROWS.map(t => fs.find(f => f.start === "" + t.padStart(5,"0"))).filter(Boolean);
     if (rows.length < 3) rows = fs.filter(f => f.tier !== "info").slice(0, 3);
-    $("#mock").innerHTML = `<div class="mtop"><i></i><i></i><i></i><span>&nbsp;Ergebnis</span><b>Beispiel ansehen →</b></div>
+    $("#mock").innerHTML = `<div class="mtop"><i></i><i></i><i></i><span>&nbsp;${L("Ergebnis", "Result")}</span><b>${L("Beispiel ansehen →", "See example →")}</b></div>
       <div class="mvid"><span></span></div>
       <div class="mtitle">${esc(short(r.title, 70))}</div>
-      <div class="sub">${mmss(dur)} · Bild und Ton geprüft</div>
+      <div class="sub">${mmss(dur)} · ${L("Bild und Ton geprüft", "picture and sound checked")}</div>
       <div class="summary">${chipsOf(r, true)}</div>
       <div class="timeline">${fs.map(f => `<span class="m ${f.tier}" style="left:${(f.t||0)/dur*100}%;width:${Math.max(.6,(parse(f.end)-f.t)/dur*100)}%"></span>`).join("")}</div>
-      ${rows.map(f => `<div class="mrow"><span class="tm">${esc(f.start.replace(/^0/,""))}</span><span class="dot ${f.tier}"></span><span>${f.song&&f.song!=="unbekannt"?"🎵 ":""}${esc(short(f.description, 62))}</span></div>`).join("")}`;
+      ${rows.map(f => `<div class="mrow"><span class="tm">${esc(f.start.replace(/^0/,""))}</span><span class="dot ${f.tier}"></span><span>${f.song&&f.song!=="unbekannt"?"🎵 ":""}${esc(short(DESC(f), 62))}</span></div>`).join("")}`;
     $("#mock").onclick = () => { location.hash = r.id; };
   }
   const all = Object.values(EXAMPLES).sort((a, b) => { const ca = counts(a), cb = counts(b);
@@ -687,12 +763,12 @@ function home(){
   $("#exgrid").innerHTML = all.map(x => { const dur = x.duration || 1;
     return `<a class="ex" href="#${x.id}"><div class="t">${esc(x.title)}</div><div class="c">${chipsOf(x)}<span class="sub">${x.duration?mmss(x.duration):""}</span></div>
       <div class="mini">${(x.findings||[]).filter(f=>!f.suspect).map(f => `<i class="${f.tier}" style="left:${(f.t||0)/dur*100}%;width:${Math.max(.5,(parse(f.end)-f.t)/dur*100)}%"></i>`).join("")}</div></a>`; }).join("")
-    || `<div class="sub">Beispiele konnten nicht geladen werden.</div>`;
+    || `<div class="sub">${L("Beispiele konnten nicht geladen werden.", "Examples could not be loaded.")}</div>`;
 }
 
 function mods(){
   current = null; lists();
-  showView(`<div class="title" style="margin-top:0">Für Mods: so nutzt ihr ReactRadar im Alltag</div>
+  showView(L(`<div class="title" style="margin-top:0">Für Mods: so nutzt ihr ReactRadar im Alltag</div>
     <p><b>1. Vorschläge vorab prüfen.</b> Link aus dem Vorschläge-Kanal oben einfügen und „Prüfen“. Ein 40-Minuten-Video dauert etwa 1–2 Minuten.
     Bei unbekannten oder heiklen Videos <b>„gründlich“</b> anhaken: Dann wird jeder Abschnitt zweimal geprüft. In unseren Tests fand das deutlich mehr
     (zusammengeführt rund 96 % statt etwa 85 % der bekannten Stellen), braucht aber doppelt so viel Kontingent.</p>
@@ -715,12 +791,38 @@ function mods(){
       <li>Mit einem kostenlosen Gemini-Schlüssel reicht das Kontingent erfahrungsgemäß für rund 3 Stunden Video pro Tag, mit „gründlich“ für die Hälfte.
         Bei manchen Videos verweigert Google die Analyse ganz. Das ist dann selbst ein Warnsignal.</li>
     </ul>
-    <p><a class="back" href="#">← zurück zur Startseite</a></p>`);
+    <p><a class="back" href="#">← zurück zur Startseite</a></p>`, `<div class="title" style="margin-top:0">For mods: how to use ReactRadar day to day</div>
+    <p><b>1. Check suggestions first.</b> Paste the link from the suggestion channel at the top and hit “Check”. A 40-minute video takes about 1 to 2 minutes.
+    For unknown or touchy videos tick <b>“thorough”</b>: every section is checked twice. In our tests that found clearly more
+    (merged about 96 % instead of about 85 % of known spots), but it uses twice the quota.</p>
+    <p><b>2. Read the result.</b></p>
+    <ul class="steps">
+      <li><span class="chip ban">Ban risk</span> Skip the spot or hide picture/sound. Best to look at it yourself before the stream.</li>
+      <li><span class="chip warn">Needs context</span> Warn the streamer. Showing it is fine, but with a clear stance or comment.</li>
+      <li><span class="chip music">Music (DMCA)</span> Lower or mute the sound. Less critical without saved VODs, but clips can still be reported.</li>
+      <li><span class="chip info">Note</span> For brand safety. Usually nothing to do.</li>
+    </ul>
+    <p><b>3. List for the stream.</b> “📋 Skip list” copies all spots with timestamps, compact enough for one Discord message.
+    Drop it in the mod channel or send it to the streamer, then the times are at hand during the reaction.</p>
+    <p><b>4. Share the result.</b> “🔗 Share link” packs the whole result into one link. Whoever opens it sees timeline and findings without checking again.</p>
+    <p><b>5. Give feedback.</b> Click “correct”, “wrong category” or “false alarm” on findings, add what was missed and hit “Copy feedback”.
+    That is exactly how the tool gets better.</p>
+    <p><b>Discord bot:</b> The bot reads along in your suggestion channel and replies to every YouTube link with the findings. Set up in two commands:
+    <b>/radar-kanal</b> and <b>/radar-schluessel</b> (your own free Gemini key), <b>/radar-sprache English</b> for English replies. Ask via kontakt@xetcraft.de.</p>
+    <p><b>Honest limits:</b></p>
+    <ul class="steps">
+      <li>The AI can miss spots, especially very short flashes. “Nothing found” does not mean “guaranteed safe”.</li>
+      <li>Only YouTube videos are checked (no Twitch VODs, no TikTok).</li>
+      <li>A free Gemini key is usually enough for about 3 hours of video a day, half that with “thorough”.
+        For some videos Google refuses the analysis entirely. That is a warning sign in itself.</li>
+      <li>Rules and examples are based on Twitch's rules; the test videos are mostly German.</li>
+    </ul>
+    <p><a class="back" href="#">← back to the start page</a></p>`));
 }
 
 function why(){
   current = null; lists();
-  showView(`<div class="title" style="margin-top:0">Warum „keine VODs“ allein nicht schützt</div>
+  showView(L(`<div class="title" style="margin-top:0">Warum „keine VODs“ allein nicht schützt</div>
     <p>Ein häufiger Einwand: „Wir speichern keine VODs, also kann nichts passieren.“ Für einen Teil der Risiken stimmt das, für die wichtigsten nicht.</p>
     <p><b>1. Twitch wertet Livestreams selbst per KI aus.</b> Ende September 2026 hat Twitch-Chef Dan Clancy bestätigt, dass Streams per KI
     transkribiert und darauf bewertet werden, ob sie für Werbekunden geeignet sind. Kanäle, die dabei als nicht „markensicher“ eingestuft werden,
@@ -735,12 +837,27 @@ function why(){
     Musik als eigene Kategorie, die jeder Kanal nach seiner Lage gewichten kann.</p>
     <p class="sub">Kurz: Ohne VODs fällt ein Teil des Musik-Risikos weg. Bann-Risiko und Werbetauglichkeit hängen aber am Live-Moment, und genau dafür
     zeigt ReactRadar die Stellen vorher an.</p>
-    <p><a class="back" href="#">← zurück zur Startseite</a></p>`);
+    <p><a class="back" href="#">← zurück zur Startseite</a></p>`, `<div class="title" style="margin-top:0">Why “no VODs” alone doesn't protect you</div>
+    <p>A common objection: “We don't save VODs, so nothing can happen.” That is true for some risks, but not for the important ones.</p>
+    <p><b>1. Twitch analyses livestreams with AI itself.</b> At the end of September 2026 Twitch CEO Dan Clancy confirmed that streams are
+    transcribed by AI and rated on whether they suit advertisers. Channels rated as not “brand safe” get fewer ads and less ad money,
+    without being told why. This happens <b>live</b>, whether a VOD is saved or not.
+    Source: <a href="https://tubefilter.com/2026/09/29/twitch-using-ai-to-scan-streamer-brand-safety-dan-clancy" target="_blank" rel="noopener">Tubefilter, 29 Sep 2026</a>.</p>
+    <p><b>2. Bans happen live.</b> Viewers can report a running stream at any time. Nudity, slurs or Nazi gestures need no VOD,
+    the report comes the moment it is seen or heard.</p>
+    <p><b>3. Clips stay.</b> As long as clips are allowed on the channel, any viewer can capture a touchy spot with one click. Clips can be
+    reported and can also get DMCA claims.</p>
+    <p><b>4. Recordings by others.</b> Viewers and clip or highlight channels record streams. What was live once is not automatically gone.</p>
+    <p><b>Where “no VODs” really helps:</b> VODs muted for music disappear, and the DMCA risk drops a lot. That is why ReactRadar
+    shows music as its own category that every channel can weigh for itself.</p>
+    <p class="sub">In short: without VODs part of the music risk goes away. Ban risk and brand safety depend on the live moment, and that is
+    exactly what ReactRadar shows you in advance.</p>
+    <p><a class="back" href="#">← back to the start page</a></p>`));
 }
 
 function privacy(){
   current = null; lists();
-  showView(`<div class="title" style="margin-top:0">Impressum, Datenschutz &amp; Hinweise</div>
+  showView(L(`<div class="title" style="margin-top:0">Impressum, Datenschutz &amp; Hinweise</div>
     <p><b>Impressum</b> (Angaben gemäß § 5 DDG): Raphael Paul, c/o flexdienst – #22433, Kurt-Schumacher-Straße 74,
     67663 Kaiserslautern, Deutschland. E-Mail: <a href="mailto:kontakt@xetcraft.de">kontakt@xetcraft.de</a>.
     ReactRadar ist ein Projekt von <a href="https://xetcraft.de" target="_blank" rel="noopener">Xetcraft</a>.</p>
@@ -763,9 +880,33 @@ function privacy(){
     Feedback geht nur an Raphael, wenn du es selbst kopierst und schickst.</p>
     <p><button id="wipe">Alle lokalen ReactRadar-Daten löschen</button> <span class="sub" id="wiped"></span></p>
     <p class="sub">Die Einschätzungen stammen von einer KI und können falsch oder unvollständig sein. Sie sind keine Rechtsberatung und keine Garantie,
-    dass ein Video auf Twitch unbedenklich ist. Erwähnte Videos und Kanäle gehören ihren jeweiligen Urhebern.</p>`);
-  $("#wipe").onclick = () => { ["rr_key","rr_scans","rr_feedback","rr_exhausted"].forEach(k => { try{ localStorage.removeItem(k); }catch{} });
-    keyUI(); lists(); $("#wiped").textContent = "✔ gelöscht"; };
+    dass ein Video auf Twitch unbedenklich ist. Erwähnte Videos und Kanäle gehören ihren jeweiligen Urhebern.</p>`, `<div class="title" style="margin-top:0">Legal notice, privacy &amp; notes</div>
+    <p><b>Legal notice</b> (Angaben gemäß § 5 DDG): Raphael Paul, c/o flexdienst – #22433, Kurt-Schumacher-Straße 74,
+    67663 Kaiserslautern, Germany. Email: <a href="mailto:kontakt@xetcraft.de">kontakt@xetcraft.de</a>.
+    ReactRadar is a project by <a href="https://xetcraft.de" target="_blank" rel="noopener">Xetcraft</a>.
+    The German version of this page is authoritative (<a href="?lang=de#datenschutz">Deutsch</a>).</p>
+    <p>ReactRadar is a private, non-commercial test project by Raphael (GitHub: xetrovt2000). There is no sign-up,
+    no cookies and no server of our own that stores data.</p>
+    <p><b>Visitor count (GoatCounter):</b> To see whether the page is used, it counts visits with <a href="https://www.goatcounter.com" target="_blank" rel="noopener">GoatCounter</a>
+    (Martin Tournoij, Netherlands). No cookies, no recognition: only the visited section (e.g. “example” with the YouTube ID or “shared link”, never its content),
+    the referring page, screen size, browser and country are sent. The IP address is not stored.
+    Legal basis is the legitimate interest in simple reach measurement (Art. 6 (1) (f) GDPR),
+    see <a href="https://www.goatcounter.com/help/privacy" target="_blank" rel="noopener">GoatCounter privacy</a>.</p>
+    <p><b>Hosting:</b> The page is hosted on GitHub Pages (GitHub Inc.). GitHub processes technically necessary data such as the IP address when the page is opened,
+    see <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub privacy statement</a>.</p>
+    <p><b>YouTube videos:</b> When you open a result, the video is embedded via <i>youtube-nocookie.com</i>. Data is transferred to Google/YouTube,
+    see <a href="https://policies.google.com/privacy?hl=en" target="_blank" rel="noopener">Google privacy policy</a>.</p>
+    <p><b>Your own checks (Gemini):</b> Only if you enter your own Gemini key and check a video does your browser send the video link and the
+    instructions directly to Google's Gemini API. Raphael sees none of it. Note: on the <b>free</b> Gemini tier Google may use inputs to
+    improve its products, see <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener">Gemini API terms</a>.
+    Only the link to a public YouTube video is sent, no personal data.</p>
+    <p><b>Stored in your browser</b> (localStorage, never leaves your device): your Gemini key, your results, your feedback and your language choice.
+    Feedback only reaches Raphael if you copy and send it yourself.</p>
+    <p><button id="wipe">Delete all local ReactRadar data</button> <span class="sub" id="wiped"></span></p>
+    <p class="sub">The ratings come from an AI and can be wrong or incomplete. They are not legal advice and no guarantee
+    that a video is safe on Twitch. Mentioned videos and channels belong to their respective creators.</p>`));
+  $("#wipe").onclick = () => { ["rr_key","rr_scans","rr_feedback","rr_exhausted","rr_lang"].forEach(k => { try{ localStorage.removeItem(k); }catch{} });
+    keyUI(); lists(); $("#wiped").textContent = L("✔ gelöscht", "✔ deleted"); };
 }
 
 /* Besucherzählung: nur Bereich + öffentliche YouTube-ID, nie der Inhalt eines #s=-Links */
@@ -796,7 +937,7 @@ $("#f2").onsubmit = e => { e.preventDefault(); $("#thorough").checked = $("#thor
 $("#ctaTop").onclick = e => { e.preventDefault(); window.scrollTo(0, 0); setTimeout(() => $("#url2").focus(), 300); };
 window.addEventListener("hashchange", route);
 keyUI();
-fetch("examples.json").then(r => r.json()).then(d => { EXAMPLES = d; }).catch(() => {}).finally(route);
+fetch("examples.json", {cache: "no-cache"}).then(r => r.json()).then(d => { EXAMPLES = d; }).catch(() => {}).finally(route);
 </script>
 </body>
 </html>
