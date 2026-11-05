@@ -10,6 +10,8 @@
 <meta name="description" content="ReactRadar prüft YouTube-Videos vor einer Twitch-Reaction auf Bann-Risiken. Testversion.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0A0610">
+<script>window.goatcounter = {no_onload: true};</script>
+<script data-goatcounter="https://xetcraft-reactradar.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 <style>
 @font-face{font-family:Nunito;src:url(nunito.ttf) format("truetype");font-weight:200 1000;font-display:swap}
 :root{
@@ -238,7 +240,7 @@ ol.steps,ul.steps{padding-left:20px;margin:8px 0} ol.steps li,ul.steps li{margin
         <button class="primary">Video prüfen</button>
       </form>
       <div class="subform"><label title="Jeden Abschnitt zweimal prüfen: findet deutlich mehr, braucht doppelt so viel Kontingent."><input type="checkbox" id="thorough2"> gründlich prüfen</label><span>oder <a href="#beispiele">fertige Beispiele ansehen</a></span></div>
-      <div class="trust"><span>Kostenlos</span><span>Ohne Anmeldung</span><span>Keine Tracker</span></div>
+      <div class="trust"><span>Kostenlos</span><span>Ohne Anmeldung</span><span>Keine Cookies</span></div>
     </div>
     <div class="stage">
       <div class="radar"></div>
@@ -484,6 +486,7 @@ async function videoMeta(vid){
 
 /* ---------- Prüfung ---------- */
 async function scan(vid){
+  track("/pruefung-gestartet");
   if (!store.get("rr_key","")){ document.body.classList.remove("is-home"); window.scrollTo(0, 0); showView(`<div class="box"><b>Für eigene Prüfungen brauchst du einen kostenlosen Gemini-Schlüssel.</b>
     <ol class="steps"><li>Öffne <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> und melde dich mit einem Google-Konto an.</li>
     <li>Klicke „Create API key“ und kopiere den Schlüssel.</li><li>Füge ihn rechts unter „Dein Gemini-Schlüssel“ ein.</li></ol>
@@ -742,7 +745,12 @@ function privacy(){
     67663 Kaiserslautern, Deutschland. E-Mail: <a href="mailto:kontakt@xetcraft.de">kontakt@xetcraft.de</a>.
     ReactRadar ist ein Projekt von <a href="https://xetcraft.de" target="_blank" rel="noopener">Xetcraft</a>.</p>
     <p>ReactRadar ist ein privates, nicht-kommerzielles Testprojekt von Raphael (GitHub: xetrovt2000). Es gibt keine Anmeldung,
-    keine Cookies, keine Analyse- oder Tracking-Werkzeuge und keinen eigenen Server, der Daten speichert.</p>
+    keine Cookies und keinen eigenen Server, der Daten speichert.</p>
+    <p><b>Besucherzählung (GoatCounter):</b> Um zu sehen, ob die Seite genutzt wird, zählt sie Aufrufe mit <a href="https://www.goatcounter.com" target="_blank" rel="noopener">GoatCounter</a>
+    (Martin Tournoij, Niederlande). Ohne Cookies und ohne Wiedererkennung: Übertragen werden nur der aufgerufene Bereich (z. B. „Beispiel“ mit der YouTube-ID
+    oder „geteilter Link“, nie dessen Inhalt), die verweisende Seite, Bildschirmgröße, Browser und Land. Die IP-Adresse wird nicht gespeichert.
+    Rechtsgrundlage ist das berechtigte Interesse an einer einfachen Reichweitenmessung (Art. 6 Abs. 1 lit. f DSGVO),
+    siehe <a href="https://www.goatcounter.com/help/privacy" target="_blank" rel="noopener">Datenschutz von GoatCounter</a>.</p>
     <p><b>Hosting:</b> Die Seite liegt bei GitHub Pages (GitHub Inc.). GitHub verarbeitet beim Aufruf technisch notwendige Daten wie die IP-Adresse,
     siehe <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Datenschutzerklärung von GitHub</a>.</p>
     <p><b>YouTube-Videos:</b> Beim Öffnen eines Ergebnisses wird das Video über <i>youtube-nocookie.com</i> eingebettet. Dabei werden Daten an Google/YouTube übertragen,
@@ -760,8 +768,17 @@ function privacy(){
     keyUI(); lists(); $("#wiped").textContent = "✔ gelöscht"; };
 }
 
+/* Besucherzählung: nur Bereich + öffentliche YouTube-ID, nie der Inhalt eines #s=-Links */
+function track(path){
+  let n = 0;
+  const go = () => { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({path, title: path}); else if (n++ < 20) setTimeout(go, 500); };
+  go();
+}
 async function route(){
   document.body.classList.remove("is-home");
+  const h = location.hash;
+  track(h.startsWith("#s=") ? "/geteilt" : ["#datenschutz","#warum","#mods","#beispiele","#so-gehts"].includes(h) ? "/" + h.slice(1)
+        : h.length > 1 ? (EXAMPLES[h.slice(1)] ? "/beispiel/" + h.slice(1) : "/eigenes-ergebnis") : "/");
   if (["#beispiele", "#so-gehts"].includes(location.hash)){ home(); document.querySelector(location.hash).scrollIntoView(); return; }
   if (location.hash === "#datenschutz"){ privacy(); return; }
   if (location.hash === "#warum"){ why(); return; }
